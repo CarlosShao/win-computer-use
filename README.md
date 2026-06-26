@@ -1,12 +1,11 @@
 # win-computer-use
 
-Windows 桌面自动化 Skill for WorkBuddy — 让 AI Agent 像人一样操控 Windows 桌面应用。
+Windows 桌面自动化工具包 — 让 AI Agent 像人一样操控 Windows 桌面应用。
 
 [English](#english)
 
 > [!WARNING]
-> **本技能不是安装即用！** 需要本地 Python 环境（≥ 3.10）+ 依赖安装。
-> 安装 Skill 后，请务必完成「环境准备」步骤，否则无法使用。
+> **本工具不是安装即用！** 需要本地 Python 环境（≥ 3.10）+ 依赖安装。
 > 详见下方 [环境要求](#安装)。
 
 ---
@@ -20,7 +19,7 @@ Windows 桌面自动化 Skill for WorkBuddy — 让 AI Agent 像人一样操控 
 - ✅ **支持中文输入**（通过剪贴板）
 - ✅ **支持任意 Windows 应用**：Win32 / WinForms / WPF / Qt / Electron / UWP
 
-当 WorkBuddy 遇到浏览器覆盖不到的场景（原生桌面应用），自动加载本 Skill。
+当 AI Agent 遇到浏览器覆盖不到的场景（原生桌面应用），可加载本工具进行自动化操作。
 
 ---
 
@@ -41,26 +40,18 @@ Windows 桌面自动化 Skill for WorkBuddy — 让 AI Agent 像人一样操控 
 
 ## 安装
 
-### 1. 安装 Skill（WorkBuddy 内）
-
-```
-/install-skill workbuddy-computer-use
-```
-
-或从 GitHub 手动安装：
+### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/CarlosShao/win-computer-use.git \
-  ~/.workbuddy/skills/win-computer-use/
+git clone https://github.com/CarlosShao/win-computer-use.git
+cd win-computer-use
 ```
 
-### 2. 安装 Python 依赖
-
-本 Skill 使用**隔离 venv**，不影响系统 Python：
+### 2. 创建虚拟环境并安装依赖
 
 ```bash
-# 进入 skill 目录
-cd ~/.workbuddy/skills/workbuddy-computer-use/
+# 进入工具目录
+cd win-computer-use
 
 # 创建隔离虚拟环境
 python -m venv .venv
@@ -89,13 +80,13 @@ python -m venv .venv
 ### 示例 1：自动填表（记事本）
 
 ```
-用户：帮我在记事本里输入"你好 WorkBuddy"，然后保存为 test.txt
+用户：帮我在记事本里输入"你好世界"，然后保存为 test.txt
 ```
 
-WorkBuddy 加载本 Skill 后自动执行：
+AI 加载本工具后自动执行：
 1. `list-windows` 找到记事本
 2. `activate-window` 激活窗口
-3. `type "你好 WorkBuddy"` 输入中文
+3. `type "你好世界"` 输入中文
 4. `hotkey ctrl s` 触发保存
 5. `set-text` 填文件名
 6. `click-element` 点保存按钮
@@ -106,11 +97,20 @@ WorkBuddy 加载本 Skill 后自动执行：
 用户：屏幕上有个"确定"按钮的图标，帮我找到并点击它
 ```
 
+1. 先从截图中裁剪出"确定"图标另存为 `ok_btn.png`
+2. `find-image ok_btn.png` → 返回坐标
+3. `click-image ok_btn.png` → 自动移动鼠标并点击
+
 ### 示例 3：UI Automation（计算器）
 
 ```
 用户：打开计算器，算一下 123 * 456
 ```
+
+1. `find-window --title "计算器"` 找窗口
+2. `find-element --title "计算器" --control_type Button --name "一"` 找按钮
+3. `click-element` 依次点击数字和运算符
+4. `element-text` 读取结果
 
 ---
 
@@ -196,7 +196,7 @@ stop-status
 
 本仓库包含 `TEST_PLAN.md`，覆盖 Lv1（冒烟）→ Lv5（安全+E2E）共 55+ 测试用例。
 
-建议在新 WorkBuddy 会话中逐级执行，确认每级通过后再推送到 SkillHub。
+建议逐级执行，确认每级通过后再正式使用或发布。
 
 ---
 
@@ -213,42 +213,38 @@ stop-status
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
 ---
 
 ## English
 
 > [!WARNING]
-> **Not an install-and-use skill!** Requires Python (≥ 3.10) + pip dependencies on your local machine.
-> After installing the skill, you must complete the [environment setup](#install) below.
+> **Not an install-and-use tool!** Requires Python (>= 3.10) + pip dependencies on your local machine.
+> See [environment setup](#install) below.
 
 ## What is this?
 
-A Windows desktop automation skill for WorkBuddy that mirrors the "Computer Use" capability of OpenAI Codex / Anthropic Claude — but runs entirely on **your own Windows machine**, no remote VM, no per-token cost.
+A Windows desktop automation toolkit that mirrors the "Computer Use" capability of OpenAI Codex / Anthropic Claude — but runs entirely on **your own Windows machine**, no remote VM, no per-token cost.
 
 **Supports any Windows app**: Win32, WinForms, WPF, Qt, Electron, UWP.
 
 ### Features
 
-- 📸 Screenshot (mss, 3-5x faster than PyAutoGUI)
-- 🖱️ Mouse control (move, click, drag, scroll)
-- ⌨️ Keyboard input (supports **Chinese** via clipboard)
-- 🪟 Window management (list, activate, minimize, close)
-- 🔍 UI Automation via pywinauto (find elements by name/automation id)
-- 🖼️ OpenCV template matching with NMS (Non-Maximum Suppression)
-- 🔤 OCR via Tesseract (optional)
-- 🛡️ Safety: emergency stop + failsafe (mouse corner kill switch)
+- Screenshot (mss, 3-5x faster than PyAutoGUI)
+- Mouse control (move, click, drag, scroll)
+- Keyboard input (supports **Chinese** via clipboard)
+- Window management (list, activate, minimize, close)
+- UI Automation via pywinauto (find elements by name/automation id)
+- OpenCV template matching with NMS (Non-Maximum Suppression)
+- OCR via Tesseract (optional)
+- Safety: emergency stop + failsafe (mouse corner kill switch)
 
 ### Install
 
 ```bash
-# Clone to WorkBuddy skills dir
-git clone https://github.com/CarlosShao/win-computer-use.git \
-  ~/.workbuddy/skills/win-computer-use/
-
-# Enter skill directory and create isolated venv
-cd ~/.workbuddy/skills/workbuddy-computer-use/
+git clone https://github.com/CarlosShao/win-computer-use.git
+cd win-computer-use
 python -m venv .venv
 
 # Install Python deps (Windows)
@@ -263,10 +259,10 @@ python -m venv .venv
 ### Quick Start
 
 ```
-User: Open Notepad, type "hello WorkBuddy", and save as test.txt
+User: Open Notepad, type "hello world", and save as test.txt
 ```
 
-WorkBuddy will auto-load this skill and execute the full desktop automation flow.
+The agent will auto-load this toolkit and execute the full desktop automation flow.
 
 ### Links
 
