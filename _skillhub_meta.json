@@ -1,0 +1,16 @@
+{
+  "skillId": "workbuddy-computer-use",
+  "name": "workbuddy-computer-use",
+  "version": "0.1.0",
+  "description": "Windows desktop automation: screenshot, mouse / keyboard control, window management, structured UI Automation, image matching, and optional OCR. Mirrors the Codex / Hermes 'computer use' capability surface.",
+  "author": "WorkBuddy self-built via skill-creator",
+  "homepage": "",
+  "repository": "",
+  "categories": ["productivity-tools", "development-tools"],
+  "tags": ["automation", "gui", "windows", "computer-use", "ui-automation", "screenshot", "image-recognition", "ocr"],
+  "platforms": ["win32"],
+  "minWorkbuddyVersion": "1.0.0",
+  "permissions": [],
+  "agentCreated": true,
+  "userModified": false
+}

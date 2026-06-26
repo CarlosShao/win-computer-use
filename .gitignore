@@ -1,0 +1,12 @@
+# Ignore
+logs/
+__pycache__/
+*.pyc
+.env
+*.png
+*.jpg
+*.jpeg
+*.bmp
+venv/
+.pytest_cache/
+.gitignore

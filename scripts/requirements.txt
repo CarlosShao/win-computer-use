@@ -1,0 +1,24 @@
+# workbuddy-computer-use runtime dependencies.
+# Install with: pip install -r scripts/requirements.txt
+#
+# These are deliberately pinned to a tested set so we don't surprise
+# downstream callers with breaking API changes from upstream.
+
+pyautogui>=0.9.54
+pywinauto>=0.6.8
+mss>=9.0.1
+opencv-python>=4.8.0
+numpy>=1.26.0
+Pillow>=10.0.0
+pygetwindow>=0.0.9
+comtypes>=1.2.0
+
+# Optional: clipboard fallback for non-ASCII type_text.  Most installs
+# already have this through pyautogui's transitive deps, but pinning
+# makes it explicit.
+pyperclip>=1.8.2
+
+# Optional: OCR.  Requires the Tesseract binary from
+# https://github.com/UB-Mannheim/tesseract/wiki (Windows installer
+# adds it to PATH).
+pytesseract>=0.3.10
