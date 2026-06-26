@@ -31,13 +31,13 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from . import image_match  # noqa: E402
-from . import input_control  # noqa: E402
-from . import ocr  # noqa: E402
-from . import safety  # noqa: E402
-from . import screen  # noqa: E402
-from . import ui_find  # noqa: E402
-from . import window_mgmt  # noqa: E402
+import image_match  # noqa: E402
+import input_control  # noqa: E402
+import ocr  # noqa: E402
+import safety  # noqa: E402
+import screen  # noqa: E402
+import ui_find  # noqa: E402
+import window_mgmt  # noqa: E402
 
 
 def _ok(action: str, data: Any = None) -> int:
