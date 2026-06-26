@@ -1,4 +1,4 @@
-# workbuddy-computer-use
+# win-computer-use
 
 Windows 桌面自动化 Skill for WorkBuddy — 让 AI Agent 像人一样操控 Windows 桌面应用。
 
@@ -50,8 +50,8 @@ Windows 桌面自动化 Skill for WorkBuddy — 让 AI Agent 像人一样操控 
 或从 GitHub 手动安装：
 
 ```bash
-git clone https://github.com/CarlosShao/workbuddy-computer-use.git \
-  ~/.workbuddy/skills/workbuddy-computer-use/
+git clone https://github.com/CarlosShao/win-computer-use.git \
+  ~/.workbuddy/skills/win-computer-use/
 ```
 
 ### 2. 安装 Python 依赖
@@ -244,8 +244,8 @@ A Windows desktop automation skill for WorkBuddy that mirrors the "Computer Use"
 
 ```bash
 # Clone to WorkBuddy skills dir
-git clone https://github.com/CarlosShao/workbuddy-computer-use.git \
-  ~/.workbuddy/skills/workbuddy-computer-use/
+git clone https://github.com/CarlosShao/win-computer-use.git \
+  ~/.workbuddy/skills/win-computer-use/
 
 # Enter skill directory and create isolated venv
 cd ~/.workbuddy/skills/workbuddy-computer-use/
@@ -270,5 +270,5 @@ WorkBuddy will auto-load this skill and execute the full desktop automation flow
 
 ### Links
 
-- GitHub: https://github.com/CarlosShao/workbuddy-computer-use
-- Issues: https://github.com/CarlosShao/workbuddy-computer-use/issues
+- GitHub: https://github.com/CarlosShao/win-computer-use
+- Issues: https://github.com/CarlosShao/win-computer-use/issues
