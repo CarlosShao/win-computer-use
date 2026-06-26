@@ -4,6 +4,11 @@ Windows 桌面自动化 Skill for WorkBuddy — 让 AI Agent 像人一样操控 
 
 [English](#english)
 
+> [!WARNING]
+> **本技能不是安装即用！** 需要本地 Python 环境（≥ 3.10）+ 依赖安装。
+> 安装 Skill 后，请务必完成「环境准备」步骤，否则无法使用。
+> 详见下方 [环境要求](#安装)。
+
 ---
 
 ## 这是什么？
@@ -213,6 +218,10 @@ MIT
 ---
 
 ## English
+
+> [!WARNING]
+> **Not an install-and-use skill!** Requires Python (≥ 3.10) + pip dependencies on your local machine.
+> After installing the skill, you must complete the [environment setup](#install) below.
 
 ## What is this?
 
