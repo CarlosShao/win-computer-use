@@ -28,7 +28,7 @@ try:
 except ImportError as _exc:  # pragma: no cover
     raise ImportError("Pillow is required for the screen module.") from _exc
 
-from . import platform as _platform
+import platform_util as _platform
 
 
 # Default output directory (overridable via env var COMPUTER_USE_SCREENSHOT_DIR).

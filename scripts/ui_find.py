@@ -20,8 +20,8 @@ try:
 except ImportError as _exc:  # pragma: no cover
     raise ImportError("pywinauto is required for the ui_find module.") from _exc
 
-from . import safety
-from . import window_mgmt
+import safety
+import window_mgmt
 
 _CONTROL_TYPES = {
     "Button",

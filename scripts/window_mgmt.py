@@ -22,7 +22,7 @@ try:
 except ImportError:  # pragma: no cover - allowed optional
     Application = None  # type: ignore
 
-from . import safety
+import safety
 
 
 def _safe_rect(win) -> Dict[str, int]:

@@ -11,7 +11,7 @@ based CLI that emits JSON to stdout for easy consumption by an LLM
 agent.
 """
 
-from . import platform as _platform  # noqa: F401  (re-export)
+from . import platform_util as _platform  # noqa: F401  (re-export)
 from . import screen as _screen  # noqa: F401
 from . import input_control as _input_control  # noqa: F401
 from . import window_mgmt as _window_mgmt  # noqa: F401

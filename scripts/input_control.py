@@ -17,7 +17,7 @@ try:
 except ImportError as _exc:  # pragma: no cover
     raise ImportError("pyautogui is required for the input_control module.") from _exc
 
-from . import safety
+import safety
 
 # A small default to make double-clicks feel snappy without skipping.
 pyautogui.PAUSE = 0.02  # type: ignore[attr-defined]

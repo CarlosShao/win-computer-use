@@ -17,7 +17,7 @@ from __future__ import annotations
 import shutil
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import screen
+import screen
 
 
 def _ensure_pytesseract():

@@ -20,9 +20,9 @@ except ImportError as _exc:  # pragma: no cover
         "opencv-python and numpy are required for the image_match module."
     ) from _exc
 
-from . import input_control
-from . import safety
-from . import screen
+import input_control
+import safety
+import screen
 
 
 _DEFAULT_THRESHOLD = float(os.environ.get("COMPUTER_USE_MATCH_THRESHOLD", "0.82"))
