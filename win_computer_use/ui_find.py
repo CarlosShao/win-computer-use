@@ -94,12 +94,26 @@ def _attach_window(window: Dict[str, Any]):
     """Attach a :class:`pywinauto.Application` to an already-running window."""
     handle = window.get("handle")
     pid = window.get("pid")
-    if handle and int(handle) > 0:
-        app = Application(backend="uia").connect(handle=int(handle))
-    elif pid and int(pid) > 0:
-        app = Application(backend="uia").connect(process=int(pid))
+    # Safely check handle
+    handle_int = None
+    if handle is not None:
+        try:
+            handle_int = int(handle)
+        except (ValueError, TypeError):
+            handle_int = None
+    # Safely check pid
+    pid_int = None
+    if pid is not None:
+        try:
+            pid_int = int(pid)
+        except (ValueError, TypeError):
+            pid_int = None
+    if handle_int is not None and handle_int > 0:
+        app = Application(backend="uia").connect(handle=handle_int)
+    elif pid_int is not None and pid_int > 0:
+        app = Application(backend="uia").connect(process=pid_int)
     else:
-        raise RuntimeError("Window has no handle or pid; cannot attach.")
+        raise RuntimeError("Window has no valid handle or pid; cannot attach.")
     return app
 
 
@@ -149,14 +163,37 @@ def find_element(
     if class_name:
         kwargs["class_name"] = class_name
 
-    try:
+    def _find_control():
+        # Try child_window first (works for native Win32 apps)
         if regex_name and name:
-            # pywinauto >= 0.6.5 supports name_re.
-            element = dlg.child_window(title_re=name, **{
+            spec = dlg.child_window(title_re=name, **{
                 k: v for k, v in kwargs.items() if k not in ("title",)
             })
         else:
-            element = dlg.child_window(**kwargs)
+            spec = dlg.child_window(**kwargs)
+        # Validate the element exists by calling rectangle()
+        try:
+            spec.rectangle()
+            return spec.wrapper_object()  # Convert WindowSpecification to Wrapper
+        except (ElementNotFoundError, Exception):
+            pass
+        # Fallback: use descendants() for Electron/Edge apps
+        filt: Dict[str, Any] = {}
+        if control_type:
+            filt["control_type"] = control_type
+        if auto_id:
+            filt["auto_id"] = auto_id
+        if name:
+            filt["title"] = name
+        if class_name:
+            filt["class_name"] = class_name
+        elems = dlg.descendants(**filt)
+        if elems:
+            return elems[0]
+        raise ElementNotFoundError("No matching element found")
+
+    try:
+        element = _find_control()
         rect = element.rectangle()
         _auto_id_attr = getattr(element.element_info, "automation_id", None)
         auto_id_val = _auto_id_attr() if callable(_auto_id_attr) else (_auto_id_attr if _auto_id_attr is not None else "")
@@ -174,7 +211,7 @@ def find_element(
                 "width": int(rect.width()),
                 "height": int(rect.height()),
             },
-            "handle": int(element.handle) if hasattr(element, "handle") else 0,
+            "handle": int(element.handle) if (hasattr(element, "handle") and element.handle is not None) else 0,
             "window_handle": window["handle"],
             "window_title": window["title"],
         }
@@ -211,16 +248,35 @@ def click_element(
         element = dlg.child_window(title_re=find_kwargs["name"], **{k: v for k, v in kwargs.items()})
     else:
         element = dlg.child_window(**kwargs)
+    # Convert to real wrapper object so .click()/.double_click() works
+    try:
+        real_el = element.wrapper_object()
+    except Exception:
+        real_el = element
     if double:
         try:
-            element.double_click(button=button)
-        except TypeError:
-            element.double_click()
+            real_el.double_click_input(button=button)
+        except (TypeError, AttributeError):
+            try:
+                real_el.double_click_input()
+            except AttributeError:
+                # Fallback: click twice
+                try:
+                    rect = real_el.rectangle()
+                    cx, cy = rect.left + rect.width() // 2, rect.top + rect.height() // 2
+                    import mouse  # type: ignore
+                    mouse.move(cx, cy)
+                    mouse.double_click(button=button if button != "left" else "left")
+                except Exception:
+                    pass
     else:
         try:
-            element.click(button=button)
-        except TypeError:
-            element.click()
+            real_el.click_input(button=button)
+        except (TypeError, AttributeError):
+            try:
+                real_el.click_input()
+            except AttributeError:
+                real_el.click()
     return {"ok": True, "element": desc}
 
 

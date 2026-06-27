@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 import time
 import traceback
@@ -158,6 +160,35 @@ def cmd_key_up(args: argparse.Namespace) -> int:
 
 def cmd_wait(args: argparse.Namespace) -> int:
     return _wrap("wait", lambda: input_control.wait(args.seconds))
+
+
+def cmd_start_app(args: argparse.Namespace) -> int:
+    """Launch an application by name or path."""
+    def _run():
+        app_name = args.app
+        # Common app name mappings
+        app_map = {
+            "edge": "msedge",
+            "chrome": "chrome",
+            "notepad": "notepad",
+            "explorer": "explorer",
+            "cmd": "cmd",
+            "powershell": "powershell",
+            "everything": "everything",
+        }
+        resolved = app_map.get(app_name.lower(), app_name)
+        try:
+            if os.path.isabs(resolved) and os.path.isfile(resolved):
+                os.startfile(resolved)
+            elif os.path.isdir(resolved):
+                os.startfile(resolved)
+            else:
+                subprocess.Popen(["start", resolved], shell=True,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return {"app": resolved, "launched": True}
+        except FileNotFoundError:
+            return {"app": resolved, "launched": False, "error": f"Application '{resolved}' not found"}
+    return _wrap("start_app", _run)
 
 
 # --- windows ---------------------------------------------------------------
@@ -331,6 +362,7 @@ def cmd_smart_click(args: argparse.Namespace) -> int:
     def _run():
         text = args.text
         auto_id = args.auto_id
+        title = args.title
         control_type = args.control_type
         name = args.name
         class_name = args.class_name
@@ -344,6 +376,7 @@ def cmd_smart_click(args: argparse.Namespace) -> int:
         if auto_id or control_type or name or class_name:
             try:
                 result = ui_find.click_element(
+                    title=title,
                     auto_id=auto_id,
                     control_type=control_type,
                     name=name,
@@ -626,6 +659,10 @@ def build_parser() -> argparse.ArgumentParser:
     wt.add_argument("seconds", type=float)
     wt.set_defaults(func=cmd_wait)
 
+    sa = sub.add_parser("start-app", help="Launch an application by name or path.")
+    sa.add_argument("--app", required=True, help="App name (e.g. msedge, notepad) or full path to exe.")
+    sa.set_defaults(func=cmd_start_app)
+
     # windows
     def _win_args(parser: argparse.ArgumentParser, required: bool = False) -> None:
         parser.add_argument("--title", default=None)
@@ -748,6 +785,7 @@ def build_parser() -> argparse.ArgumentParser:
     sc = sub.add_parser("smart-click", help="Click by text/element/image with auto fallback.")
     sc.add_argument("--text", default=None, help="Text to find via UI Automation or OCR.")
     sc.add_argument("--auto-id", default=None, help="UI Automation auto-id.")
+    sc.add_argument("--title", default=None, help="Window title to target.")
     sc.add_argument("--control-type", default=None)
     sc.add_argument("--name", default=None)
     sc.add_argument("--class-name", default=None)

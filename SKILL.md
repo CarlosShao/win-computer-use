@@ -1,260 +1,280 @@
 ---
 name: win-computer-use
-description: "Windows desktop automation for AI agents. This skill provides screenshot, mouse/keyboard control, window management, UI automation, image matching, and OCR capabilities. Load it when the user asks to control a Windows desktop application, click buttons, type text, take screenshots, or automate GUI tasks. Mirrors OpenAI Codex and Anthropic Claude's 'computer use' capability but runs locally on the user's Windows machine."
+description: "Windows desktop automation for AI agents. Load when the user asks to control a Windows desktop application, click buttons, type text, take screenshots, automate GUI tasks, or any native Windows app operation that cannot be done via browser automation."
 agent_created: true
 ---
 
 # win-computer-use
 
-Windows desktop automation toolkit for WorkBuddy. A drop-in replacement
-for the "computer use" capability exposed by OpenAI Codex and Hermes /
-Anthropic Claude -- but driven entirely from Python running on the
-user's machine, no remote VM, no per-token cost.
+> **SPEED IS EVERYTHING.** Every API call = 1-3 seconds latency. A simple task must complete in **5-8 calls MAX**.
+>
+> If you find yourself making more than 8 calls for a single user action, **STOP and simplify**.
+
+Windows desktop automation toolkit. Mirrors OpenAI Codex / Anthropic Claude's "computer use" capability — runs locally, no remote VM, no per-token cost.
 
 ## Installation
 
-**Option 1: Install from PyPI (recommended)**
 ```bash
 pip install win-computer-use
 ```
 
-**Option 2: Install from source (for development)**
-```bash
-# Clone the repository
-git clone https://github.com/CarlosShao/win-computer-use.git
-cd win-computer-use
+## ⚡ The Golden Path (READ THIS FIRST)
 
-# Run the installation script (Windows)
-install.bat
+### Rule #1: One screenshot with markers → direct coordinates → done
 
-# Or manually
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e .
+**The fastest workflow for ANY task:**
+
+```
+Step 1: screenshot --with-markers  →  get full UI layout (1 call)
+Step 2: click [coordinates]         →  act on what you see   (1 call)
+Step 3: type / hotkey              →  input if needed        (1 call)
+Done. 3 calls total.
 ```
 
-**Option 3: Use without installation (backward compatibility)**
+### Rule #2: NEVER use OCR unless absolutely necessary
+
+**OCR takes 5-10 seconds per call.** It is your LAST resort.
+The `--with-markers` screenshot already tells you where everything is.
+
+### Rule #3: Use raw coordinates when you can see the target in the screenshot
+
+If the marker screenshot shows a button at (x, y), just `click x y`. Don't waste calls finding it again via UI Automation or image matching.
+
+---
+
+## Workflow Examples
+
+### Example 1: Click taskbar icon & search (the user's actual test case)
+
+**Task**: 点击任务栏 Everything 快捷方式 → 搜索 test.json → 右键进入目录
+
+```
+# Step 1: ONE screenshot with markers — see entire screen layout
+win-computer-use screenshot --output logs/step1.png --with-markers
+→ Returns image + JSON with all UI elements labeled
+
+# Step 2: Click Everything icon on taskbar (read coordinates from step1 image)
+win-computer-use click 850 1040
+# (coordinates read from the marked screenshot)
+
+# Step 3: Type search query directly
+win-computer-use type "test.json"
+
+# Step 4: Press Enter
+win-computer-use key-press Return
+
+# Step 5: Wait briefly for results, then right-click the file
+win-computer-use wait 1
+win-computer-use right-click 400 280
+# (coordinate of search result from mental model of Everything UI)
+
+# Step 6: Click "Open file location" in context menu
+win-computer-use click 440 520
+```
+
+**Total: 6 calls. Done in ~10 seconds.**
+
+Compare this to the BAD approach (what happened before): 40+ calls, 2+ minutes, massive token waste.
+
+### Example 2: Open app & fill a form
+
+```
+# Step 1: Launch app
+win-computer-use start-app --app "notepad"
+
+# Step 2: Screenshot with markers
+win-computer-use screenshot --output logs/form.png --with-markers
+
+# Step 3: Click text area + type
+win-computer-use click 500 400
+win-computer-use type "Hello World"
+
+# Step 4: Save
+win-computer-use hotkey ctrl s
+```
+
+**Total: 4 calls.**
+
+### Example 3: Complex multi-step (browser)
+
+```
+# Step 1: Screenshot current state
+win-computer-use screenshot --output logs/start.png --with-markers
+
+# Step 2: Activate browser window
+win-computer-use activate-window --title "Edge"
+
+# Step 3: Navigate (address bar shortcut)
+win-computer-use hotkey ctrl l
+win-computer-use type "https://www.bing.com"
+win-computer-use key-press Return
+
+# Step 4: Wait for page load, then screenshot results
+win-computer-use wait 3
+win-computer-use screenshot --output logs/results.png --with-markers
+
+# Step 5: Click search box (from markers) and type
+win-computer-use click 600 300
+win-computer-use type "search query"
+win-computer-use key-press Return
+```
+
+**Total: 7 calls.**
+
+---
+
+## Command Reference (Speed-Ordered)
+
+### 🏆 Tier 1: Use these FIRST (fastest, most reliable)
+
+| Command | When to use | Example |
+|---------|------------|---------|
+| `screenshot --with-markers` | **ALWAYS start here** — see full UI in one shot | `screenshot -o log.png --with-markers` |
+| `click X Y` | You see target coordinates in screenshot | `click 500 300` |
+| `right-click X Y` | Need context menu | `right-click 500 300` |
+| `type TEXT` | Input text into focused field | `type "hello world"` |
+| `hotkey KEY...` | Shortcut keys | `hotkey ctrl s` |
+| `key-press KEY` | Single key | `key-press Return` |
+| `start-app --app NAME` | Launch an app by name | `start-app --app msedge` |
+
+### 🔶 Tier 2: Use when needed (moderate speed)
+
+| Command | When to use | Example |
+|---------|------------|---------|
+| `activate-window --title X` | Bring window to front | `activate-window --title Edge` |
+| `list-windows --filter X` | Find running windows | `list-windows --filter Edge` |
+| `move X Y` | Move mouse without clicking | `move 100 100` |
+| `double-click X Y` | Double-click | `double-click 500 300` |
+| `drag X1 Y1 X2 Y2` | Drag from A to B | `drag 100 100 500 500` |
+| `scroll N` | Scroll wheel | `scroll 3` |
+| `wait SECONDS` | Pause for UI to load | `wait 2` |
+
+### 🔴 Tier 3: Avoid unless necessary (slow or complex)
+
+| Command | Why avoid | Alternative |
+|---------|----------|-------------|
+| `ocr` / `ocr-words` | **5-10 seconds per call!** | Use `--with-markers` instead |
+| `find-element` | Needs exact control info | Read coords from marker screenshot |
+| `click-element` | Same as above | Use `click X Y` |
+| `find-image` | Needs template image prepared | Use `click X Y` from markers |
+| `click-image` | Same as above | Use `click X Y` from markers |
+| `smart-click` | Tries 3 methods sequentially (slow) | Use `click X Y` from markers |
+
+### ⛑️ Safety (use only when needed)
+
+| Command | Purpose |
+|---------|---------|
+| `emergency-stop` | Halt all operations immediately |
+| `clear-stop` | Resume after emergency stop |
+| `stop-status` | Check safety state |
+| `failsafe on/off` | Toggle mouse-corner abort |
+
+---
+
+## Anti-Patterns (DO NOT DO These)
+
+### ❌ Bad: OCR-heavy approach (SLOW)
+```
+# This took 40+ calls and 2+ minutes:
+screenshot
+ocr                                    # 10 seconds!
+ocr-search "Everything"               # another 10 seconds!
+find-element --name "Search"          # might not work
+set-text --value "test.json"
+screenshot                            # verify?
+ocr                                    # ANOTHER scan?!
+...
+```
+
+### ✅ Good: Marker-first approach (FAST)
+```
+# This completes in 6 calls and ~10 seconds:
+screenshot --with-markers             # 1 call, see everything
+click 850 1040                         # click taskbar icon
+type "test.json"
+key-press Return
+wait 1
+right-click 400 280                   # right-click result
+click 440 520                         # open file location
+```
+
+### ❌ Bad: Over-investigating
+```
+# Don't try 5 different ways to find an app:
+list-windows                          # try 1
+find-window --title Everything        # try 2  
+powershell get-process                # try 3
+registry search                       # try 4
+ocr search                            # try 5
+```
+
+### ✅ Good: Direct action
+```
+# Just click it if you can see it:
+screenshot --with-markers            # see where things are
+click X Y                             # done
+```
+
+---
+
+## Calling Convention
+
 ```bash
-# After cloning the repo, use the wrapper script
+# After pip install — use directly:
 win-computer-use <command> [args...]
-```
 
-## What it can do
-
-| Capability | Commands |
-|---|---|
-| **Screenshot** | `screenshot`, `screen-size`, `pixel` |
-| **Mouse** | `mouse-position`, `move`, `click`, `double-click`, `right-click`, `drag`, `scroll` |
-| **Keyboard** | `type`, `hotkey`, `key-press`, `key-down`, `key-up`, `wait` |
-| **Window mgmt** | `list-windows`, `find-window`, `activate-window`, `minimize`, `maximize`, `restore`, `close-window`, `window-rect` |
-| **Structured UI** | `find-element`, `click-element`, `set-text`, `element-text`, `wait-element` |
-| **Image match** | `find-image`, `click-image`, `wait-image`, `count-image` |
-| **OCR (optional)** | `ocr`, `ocr-words` (requires Tesseract binary on PATH) |
-| **Safety** | `emergency-stop`, `clear-stop`, `failsafe`, `stop-status` |
-
-## When to load this skill
-
-Load it the moment the user asks for anything that requires touching a
-desktop app.  Concrete trigger phrases include:
-
-- "帮我打开 XX 程序并点确定"
-- "自动填这个表单"
-- "截个图给我看"
-- "find the Settings button and click it"
-- "drive this GUI for me"
-- "屏幕上的 XX 图标在哪?"
-- "把这段文字输入到记事本"
-- "operate Excel / 钉钉 / 企业微信 / 飞书 / 浏览器 ... "
-- "playwright is not enough, this is a native app"
-- "codex computer use" / "Hermes computer use"
-- "我手动操作太烦了, 帮我自动化一下"
-
-If the user is asking only about a **browser** (Chrome / Edge / QQ
-browser), prefer the dedicated `browser-use` skill -- it has tighter
-selectors and works in headless mode.  This skill is for **native
-Windows apps** and for any task where the browser skills can't reach
-the UI.
-
-## Workflow
-
-### 1. Locate / open the target application
-
-Prefer the structured UI Automation path whenever possible -- it is
-far more robust than pixel clicking.  Start by listing windows:
-
-```bash
-win-computer-use list-windows --filter "Notepad"
-```
-
-The returned JSON contains ``title``, ``handle``, ``pid`` and
-``rect``.  Activate it with:
-
-```bash
-win-computer-use activate-window --title "Untitled - Notepad"
-```
-
-If the application is not running, ask the user (or the LLM) to start
-it via the standard Windows shell (`start notepad`, `os.startfile`,
-or just clicking the Start Menu).
-
-### 2. Take a screenshot to ground the model
-
-```bash
-win-computer-use screenshot --output logs/last.png --base64
-```
-
-`--base64` embeds the PNG inline so the LLM can pipe it straight into
-a vision model.  For large screens or repetitive workflows, prefer
-cropping with `--region left,top,width,height` to keep image size and
-token cost down.
-
-### 3. Drive the UI
-
-**Preferred**: structured lookup.
-
-```bash
-# Find a button by its automation id (visible in tools like Inspect.exe).
-win-computer-use find-element --title "Untitled - Notepad" \
-    --control_type Button --auto_id "Open"
-# Click it.
-win-computer-use click-element --title "Untitled - Notepad" \
-    --control_type Button --name "OK"
-# Type into a text field.
-win-computer-use set-text --title "Save As" \
-    --control_type Edit --auto_id "FileNameControl" --value "report.txt"
-```
-
-**Fallback 1**: image matching when the target is canvas-rendered
-(games, custom-painted widgets, Electron apps without proper
-automation IDs):
-
-```bash
-win-computer-use click-image assets/ok_button.png --threshold 0.85
-```
-
-**Fallback 2**: raw coordinates after inspecting the screenshot:
-
-```bash
-win-computer-use click 1240 712
-win-computer-use type "Hello, world!"
-```
-
-### 4. Loop safely
-
-For repetitive workflows, batch the commands in a small Bash script
-inside the skill's `logs/` folder so the model only invokes a single
-`execute_command` per iteration.  Always include an emergency-stop
-branch:
-
-```bash
-win-computer-use click-image assets/confirm.png \
-    || win-computer-use emergency-stop
-```
-
-### 5. Stop / undo
-
-- `win-computer-use emergency-stop` -- set the stop flag; the
-  *next* call to any action raises `EmergencyStop` immediately.
-- `win-computer-use clear-stop` -- clear the flag (e.g. before
-  retrying after a fix).
-- `win-computer-use failsafe off` -- disable the
-  mouse-to-top-left-corner abort (useful inside RDP / VMs where
-  the cursor can't reach the corner).  Off by default for typical
-  desktop use: keep `on`.
-- `win-computer-use stop-status` -- query both flags.
-
-## Calling convention
-
-All commands share a single Python entry point.  The canonical
-invocation from WorkBuddy's `execute_command` is:
-
-```bash
-PY="C:/Users/swq/.workbuddy/binaries/python/envs/computer-use/Scripts/python.exe"
-SKILL="D:/work/java/AI-workspace/skills/.workbuddy/skills/workbuddy-computer-use"
-"$PY" "$SKILL/scripts/cli.py" <command> [args...]
+# Or via module:
+python -m win_computer_use <command> [args...]
 ```
 
 Every command emits a single JSON object on stdout:
 
 ```json
-{"ok": true, "action": "screenshot", "data": {"path": "...", "width": 1920, "height": 1080, ...}}
-{"ok": false, "action": "click_element", "error": "element not found", "traceback": "..."}
+{"ok": true, "action": "screenshot", "data": {"path": "...", "width": 1920, "height": 1080}}
+{"ok": false, "action": "click", "error": "..."}
 ```
 
-Exit codes: `0` on success, `1` on error.  Pipe failures (`||` chains,
-`jq -e .ok`) work as expected.
+Exit codes: `0` success, `1` error.
+
+---
+
+## Special Flags
+
+| Flag | Effect | Use when |
+|------|--------|----------|
+| `--with-markers` | Annotate screenshot with UI element labels | **Always on first screenshot** |
+| `--all-windows` | Scan ALL windows (not just active) | Target app is not foreground |
+| `--base64` | Embed PNG as base64 in JSON | Passing image to vision LLM |
+| `--region L,T,W,H` | Crop screenshot to region | Large screens / reduce token cost |
+| `--lock-input` | Lock keyboard/mouse during command | Prevent user interference |
+| `--lock-timeout SEC` | Auto-release lock after N seconds | Safety timeout |
+
+---
 
 ## Environment
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `COMPUTER_USE_SCREENSHOT_DIR` | `<skill>/screenshots/` | Where to drop auto-named screenshots |
-| `COMPUTER_USE_SAFETY_FILE` | `<skill>/logs/safety_state.json` | Cross-process safety flag store |
-| `COMPUTER_USE_MATCH_THRESHOLD` | `0.82` | OpenCV `matchTemplate` confidence floor |
-
-Set `TESSDATA_PREFIX` if your Tesseract install lives outside the
-default location.
+| `COMPUTER_USE_SCREENSHOT_DIR` | `<skill>/screenshots/` | Auto-named screenshot output |
+| `COMPUTER_USE_SAFETY_FILE` | `<skill>/logs/safety_state.json` | Emergency stop flag store |
+| `COMPUTER_USE_MATCH_THRESHOLD` | `0.82` | Image match confidence floor |
 
 ## Dependencies
 
-- Python 3.10+ (tested on 3.13.12)
-- `pyautogui`, `pywinauto`, `mss`, `opencv-python`, `numpy`, `Pillow`,
-  `pygetwindow`, `comtypes`, `pyperclip`
-- Optional: `pytesseract` + Tesseract 5 binary (for OCR)
-- Optional: `pyperclip` (for non-ASCII `type`)
+- Python 3.10+, Windows only
+- `pyautogui`, `pywinauto`, `mss`, `opencv-python`, `numpy`, `Pillow`
+- Optional: `uiautomation` (for `--with-markers`)
+- Optional: `pytesseract` / `rapidocr` (for OCR — **avoid using**)
 
-Install with the bundled `scripts/requirements.txt`:
-
+Install:
 ```bash
-python -m pip install -r scripts/requirements.txt
+pip install win-computer-use
 ```
 
 ## Safety
 
-This skill literally moves the cursor and types keys on the user's
-physical computer.  Treat every command as if you were sitting at the
-keyboard yourself.
+This skill moves the cursor and types keys on the real computer.
 
-- **FAILSAFE** is enabled by default.  Slam the cursor into the
-  top-left corner of the primary monitor and every subsequent call
-  raises `pyautogui.FailSafeException`.
-- **Emergency stop** sets a flag in `logs/safety_state.json`.  Any
-  running command that calls `safety.check_emergency_stop()` (i.e.
-  every interactive action in this skill) aborts on the next poll.
-  Trigger it with `cli.py emergency-stop` from another shell, or via
-  a hotkey wired to a future `cmd_watchdog.py`.
-- **Permission scope.** This skill does not require admin rights, but
-  it can drive any GUI the user can drive -- including file-system
-  dialogs, password managers, payment apps.  Only invoke it on
-  commands the user explicitly authorised.
-
-## Layout
-
-```
-workbuddy-computer-use/
-├── SKILL.md                          # this file
-├── scripts/                          # the actual Python toolkit
-│   ├── platform.py                   #   OS / DPI helpers
-│   ├── screen.py                     #   screenshot primitives
-│   ├── input_control.py              #   mouse + keyboard
-│   ├── window_mgmt.py                #   window list / activate
-│   ├── ui_find.py                    #   structured UI Automation
-│   ├── image_match.py                #   OpenCV template matching
-│   ├── ocr.py                        #   Tesseract (optional)
-│   ├── safety.py                     #   FAILSAFE + emergency stop
-│   ├── cli.py                        #   JSON CLI entry point
-│   └── requirements.txt
-├── references/
-│   ├── api.md                        # full API reference
-│   ├── cookbook.md                   # step-by-step recipes
-│   └── troubleshooting.md            # common errors + fixes
-├── assets/                           # template images for click-image
-├── screenshots/                      # auto-named screenshots
-└── logs/                             # safety state + run logs
-```
-
-For full parameter docs and worked examples, see
-[`references/api.md`](references/api.md) and
-[`references/cookbook.md`](references/cookbook.md).  When something
-breaks unexpectedly, check [`references/troubleshooting.md`](references/troubleshooting.md)
-first.
+- **FAILSAFE** enabled by default — slam cursor to top-left corner to abort
+- **Emergency stop** — `emergency-stop` sets flag; next interactive call aborts
+- Only invoke on actions the user explicitly authorised

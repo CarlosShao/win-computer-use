@@ -67,8 +67,15 @@ def list_windows(
 
     out: List[Dict[str, Any]] = []
     for title in gw.getAllTitles():
-        if matcher and not matcher(title):
-            continue
+        if matcher:
+            if hasattr(matcher, 'search'):
+                # regex matcher
+                if not matcher.search(title):
+                    continue
+            else:
+                # lambda matcher
+                if not matcher(title):
+                    continue
         try:
             wins = gw.getWindowsWithTitle(title)
         except Exception:
