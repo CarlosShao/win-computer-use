@@ -330,6 +330,7 @@ def cmd_ocr(args: argparse.Namespace) -> int:
             region=_region_tuple(args.region),
             lang=args.lang,
             tesseract_cmd=args.tesseract,
+            backend=args.backend,
         ),
     )
 
@@ -341,6 +342,7 @@ def cmd_ocr_words(args: argparse.Namespace) -> int:
             region=_region_tuple(args.region),
             lang=args.lang,
             tesseract_cmd=args.tesseract,
+            backend=args.backend,
         ),
     )
 
@@ -359,7 +361,7 @@ def cmd_clear_stop(args: argparse.Namespace) -> int:
 
 
 def cmd_failsafe(args: argparse.Namespace) -> int:
-    safety.set_failsafe(args.enable)
+    safety.set_failsafe(args.enable == "on")
     return _ok("failsafe", {"enabled": safety.failsafe_enabled()})
 
 
@@ -562,12 +564,16 @@ def build_parser() -> argparse.ArgumentParser:
     oc.add_argument("--region", default=None)
     oc.add_argument("--lang", default="chi_sim+eng")
     oc.add_argument("--tesseract", default=None)
+    oc.add_argument("--backend", default="auto", choices=["auto", "rapidocr", "tesseract", "tesserocr"],
+                    help="OCR backend: auto (try rapidocr first), rapidocr, tesseract, tesserocr")
     oc.set_defaults(func=cmd_ocr)
 
     ow = sub.add_parser("ocr-words")
     ow.add_argument("--region", default=None)
     ow.add_argument("--lang", default="chi_sim+eng")
     ow.add_argument("--tesseract", default=None)
+    ow.add_argument("--backend", default="auto", choices=["auto", "rapidocr", "tesseract", "tesserocr"],
+                    help="OCR backend: auto (try rapidocr first), rapidocr, tesseract, tesserocr")
     ow.set_defaults(func=cmd_ocr_words)
 
     # safety

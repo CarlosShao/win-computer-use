@@ -60,12 +60,14 @@ cd win-computer-use
 python -m venv .venv
 
 # 安装依赖（仅 Windows）
-.venv\Scripts\pip.exe install pyautogui pywinauto opencv-python numpy mss pillow pytesseract
+.venv\Scripts\pip.exe install pyautogui pywinauto opencv-python numpy mss pillow pytesseract rapidocr-onnxruntime
 ```
 
 > **注意**：Python 版本要求 ≥ 3.10。如果系统没有 `python` 命令，请用 `python3` 替代。
 > 
 > ⚠️ **本工具仅支持 Windows**，`pywinauto` 是 Windows 专属依赖，无法在 macOS / Linux 上运行。
+> 
+> **OCR 说明**：默认使用 **RapidOCR** 后端（无需安装 Tesseract），首次运行会自动下载模型（~40MB）。如需使用 Tesseract，可加 `--backend tesseract` 参数。
 
 ### 3.（可选）安装 Tesseract OCR
 
@@ -253,12 +255,14 @@ cd win-computer-use
 python -m venv .venv
 
 # Install Python deps (Windows only)
-.venv\Scripts\pip.exe install pyautogui pywinauto opencv-python numpy mss pillow pytesseract
+.venv\Scripts\pip.exe install pyautogui pywinauto opencv-python numpy mss pillow pytesseract rapidocr-onnxruntime
 ```
 
 > **Note**: Requires Python >= 3.10. Use `python3` if `python` is not available.
 > 
 > ⚠️ **Windows Only!** `pywinauto` is Windows-specific and will not work on macOS / Linux.
+> 
+> **OCR**: Uses **RapidOCR** by default (no Tesseract needed). Models auto-download on first use (~40MB). Use `--backend tesseract` to switch.
 
 ### Quick Start
 
