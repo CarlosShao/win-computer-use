@@ -93,14 +93,20 @@ def screenshot(
     output: Optional[str] = None,
     base64: bool = False,
     monitor: int = 0,
+    with_markers: bool = False,
 ):
     def _run():
         r = None
         if region:
             parts = [int(v) for v in region.split(",")]
             if len(parts) != 4:
-                raise ValueError("--region expects 'left,top,width,height'")
+                raise ValueError("region expects 'left,top,width,height'")
             r = tuple(parts)
+        if with_markers:
+            from markers import screenshot_with_markers
+            return screenshot_with_markers(
+                region=r, output_path=output, return_base64=base64, monitor_index=monitor,
+            )
         info = screen.screenshot(region=r, output_path=output, return_base64=base64, monitor_index=monitor)
         if not base64:
             info.pop("base64", None)
@@ -290,17 +296,312 @@ def ocr_text(region: Optional[str] = None, lang: str = "chi_sim+eng", backend: s
     return _wrap(_run)
 
 
-# --- safety ------------------------------------------------------------------
+# --- image match (continued) -------------------------------------------
 
-@app.post("/safety/emergency-stop")
-def emergency_stop():
-    safety.emergency_stop()
-    return _ok({"stopped": True})
+@app.post("/image/wait")
+def wait_image(
+    template: str,
+    region: Optional[str] = None,
+    threshold: float = 0.82,
+    timeout: float = 10.0,
+    interval: float = 0.5,
+    multi_scale: bool = False,
+):
+    def _run():
+        r = None
+        if region:
+            parts = [int(v) for v in region.split(",")]
+            if len(parts) != 4:
+                raise ValueError("region expects 'left,top,width,height'")
+            r = tuple(parts)
+        return image_match.wait_for_image(
+            template, region=r, timeout=timeout, interval=interval,
+            threshold=threshold, multi_scale=multi_scale,
+        )
+    return _wrap(_run)
 
 
-@app.get("/safety/stop-status")
-def stop_status():
-    return _ok({"stopped": safety.is_stopped(), "failsafe": safety.failsafe_enabled()})
+@app.post("/image/count")
+def count_image(
+    template: str,
+    region: Optional[str] = None,
+    threshold: float = 0.82,
+    multi_scale: bool = False,
+):
+    def _run():
+        r = None
+        if region:
+            parts = [int(v) for v in region.split(",")]
+            if len(parts) != 4:
+                raise ValueError("region expects 'left,top,width,height'")
+            r = tuple(parts)
+        return image_match.count_image(
+            template, region=r, threshold=threshold, multi_scale=multi_scale,
+        )
+    return _wrap(_run)
+
+
+# --- ocr (words) ---------------------------------------------------
+
+@app.post("/ocr/words")
+def ocr_words(region: Optional[str] = None, lang: str = "chi_sim+eng", backend: str = "auto"):
+    def _run():
+        r = None
+        if region:
+            parts = [int(v) for v in region.split(",")]
+            if len(parts) != 4:
+                raise ValueError("region expects 'left,top,width,height'")
+            r = tuple(parts)
+        return ocr.ocr_words(region=r, lang=lang, backend=backend)
+    return _wrap(_run)
+
+
+# --- smart click -------------------------------------------------------
+
+@app.post("/smart-click")
+def smart_click(
+    text: Optional[str] = None,
+    auto_id: Optional[str] = None,
+    control_type: Optional[str] = None,
+    name: Optional[str] = None,
+    class_name: Optional[str] = None,
+    template: Optional[str] = None,
+    region: Optional[str] = None,
+    button: str = "left",
+    timeout: float = 5.0,
+    multi_scale: bool = False,
+):
+    def _run():
+        r = None
+        if region:
+            parts = [int(v) for v in region.split(",")]
+            if len(parts) != 4:
+                raise ValueError("region expects 'left,top,width,height'")
+            r = tuple(parts)
+        # Try UI Automation first
+        if auto_id or control_type or name or class_name:
+            try:
+                result = ui_find.click_element(
+                    auto_id=auto_id, control_type=control_type,
+                    name=name, class_name=class_name,
+                    button=button, double=False,
+                )
+                if result and result.get("ok"):
+                    result["method"] = "ui_automation"
+                    return result
+            except Exception:
+                pass
+        # Try OCR
+        if text:
+            try:
+                words = ocr.ocr_words(region=r, lang="chi_sim+eng")
+                if words:
+                    best = None
+                    for w in words:
+                        if text in w.get("text", ""):
+                            if best is None or w.get("conf", 0) > best.get("conf", 0):
+                                best = w
+                    if best:
+                        cx = best["x"] + best["w"] // 2
+                        cy = best["y"] + best["h"] // 2
+                        input_control.click(cx, cy, button=button)
+                        return {
+                            "ok": True,
+                            "method": "ocr",
+                            "text": best["text"],
+                            "clicked": {"x": cx, "y": cy, "button": button},
+                        }
+            except Exception:
+                pass
+        # Fallback to image matching
+        if template:
+            result = image_match.click_image(
+                template, region=r, threshold=0.82,
+                button=button, multi_scale=multi_scale,
+            )
+            if result and result.get("ok"):
+                result["method"] = "image_match"
+                return result
+        raise RuntimeError("smart_click: all methods failed")
+    return _wrap(_run)
+
+
+# --- safety (continued) -----------------------------------------------
+
+@app.post("/safety/clear-stop")
+def clear_stop():
+    safety.clear_stop()
+    return _ok({"stopped": False})
+
+
+@app.post("/safety/failsafe")
+def set_failsafe(enable: bool = True):
+    safety.set_failsafe(enable)
+    return _ok({"enabled": safety.failsafe_enabled()})
+
+
+# --- windows (continued) -----------------------------------------
+
+@app.post("/window/minimize")
+def minimize_window(title: Optional[str] = None, handle: Optional[int] = None, pid: Optional[int] = None):
+    return _wrap(lambda: window_mgmt.minimize_window(title=title, handle=handle, pid=pid))
+
+
+@app.post("/window/maximize")
+def maximize_window(title: Optional[str] = None, handle: Optional[int] = None, pid: Optional[int] = None):
+    return _wrap(lambda: window_mgmt.maximize_window(title=title, handle=handle, pid=pid))
+
+
+@app.post("/window/restore")
+def restore_window(title: Optional[str] = None, handle: Optional[int] = None, pid: Optional[int] = None):
+    return _wrap(lambda: window_mgmt.restore_window(title=title, handle=handle, pid=pid))
+
+
+@app.get("/window/rect")
+def window_rect(title: Optional[str] = None, handle: Optional[int] = None, pid: Optional[int] = None):
+    return _wrap(lambda: window_mgmt.window_rect(title=title, handle=handle, pid=pid))
+
+
+# --- ui automation (continued) -----------------------------------
+
+@app.post("/ui/set-text")
+def ui_set_text(
+    value: str,
+    title: Optional[str] = None,
+    handle: Optional[int] = None,
+    pid: Optional[int] = None,
+    auto_id: Optional[str] = None,
+    control_type: Optional[str] = None,
+    name: Optional[str] = None,
+    class_name: Optional[str] = None,
+    regex_name: bool = False,
+):
+    return _wrap(lambda: ui_find.set_text(
+        title=title, handle=handle, pid=pid,
+        value=value,
+        auto_id=auto_id, control_type=control_type,
+        name=name, class_name=class_name,
+        regex_name=regex_name,
+    ))
+
+
+@app.post("/ui/element-text")
+def ui_element_text(
+    title: Optional[str] = None,
+    handle: Optional[int] = None,
+    pid: Optional[int] = None,
+    auto_id: Optional[str] = None,
+    control_type: Optional[str] = None,
+    name: Optional[str] = None,
+    class_name: Optional[str] = None,
+    regex_name: bool = False,
+):
+    return _wrap(lambda: ui_find.element_text(
+        title=title, handle=handle, pid=pid,
+        auto_id=auto_id, control_type=control_type,
+        name=name, class_name=class_name,
+        regex_name=regex_name,
+    ))
+
+
+@app.post("/ui/wait-element")
+def ui_wait_element(
+    title: Optional[str] = None,
+    handle: Optional[int] = None,
+    pid: Optional[int] = None,
+    auto_id: Optional[str] = None,
+    control_type: Optional[str] = None,
+    name: Optional[str] = None,
+    class_name: Optional[str] = None,
+    regex_name: bool = False,
+    timeout: float = 10.0,
+    interval: float = 0.5,
+):
+    return _wrap(lambda: ui_find.wait_element(
+        title=title, handle=handle, pid=pid,
+        auto_id=auto_id, control_type=control_type,
+        name=name, class_name=class_name,
+        regex_name=regex_name,
+        timeout=timeout, interval=interval,
+    ))
+
+
+# --- input lock -------------------------------------------------------
+
+_input_lock_instance = None
+
+
+@app.post("/lock")
+def lock_input(timeout: float = 30.0):
+    """Acquire input lock (blocks user mouse/keyboard)."""
+    global _input_lock_instance
+    import input_lock as _il
+    if _il.InputLock.is_active():
+        return _ok("lock", {"active": True, "message": "Already locked"})
+    _input_lock_instance = _il.InputLock(timeout=timeout, show_overlay=True)
+    ok = _input_lock_instance.acquire()
+    return _ok("lock", {"active": ok})
+
+
+@app.post("/unlock")
+def unlock_input():
+    """Release input lock."""
+    global _input_lock_instance
+    import input_lock as _il
+    _il.InputLock.force_release()
+    _input_lock_instance = None
+    return _ok("unlock", {"active": False})
+
+
+@app.get("/lock-status")
+def lock_status():
+    import input_lock as _il
+    return _ok("lock_status", {"active": _il.InputLock.is_active()})
+
+
+# --- recorder ---------------------------------------------------------
+
+_recording_data: list = []
+_recording_file: Optional[str] = None
+
+
+@app.post("/record/start")
+def record_start():
+    """Start recording mouse/keyboard."""
+    import recorder as _rc
+    if _rc.is_recording():
+        return _ok("record_start", {"error": "Already recording"})
+    ok = _rc.start_recording()
+    return _ok("record_start", {"ok": ok})
+
+
+@app.post("/record/stop")
+def record_stop(file: Optional[str] = None):
+    """Stop recording and save to file."""
+    import recorder as _rc
+    result = _rc.stop_recording(file)
+    return _ok("record_stop", result)
+
+
+@app.post("/record/play")
+def record_play(file: str, speed: float = 1.0):
+    """Play back a recorded macro."""
+    import recorder as _rc
+    result = _rc.play_recording(file, speed=speed)
+    return _ok("record_play", result)
+
+
+@app.get("/record/status")
+def record_status():
+    import recorder as _rc
+    return _ok("record_status", {"recording": _rc.is_recording()})
+
+
+# --- health check -----------------------------------------------------
+
+@app.get("/health")
+def health():
+    return {"ok": True, "service": "win-computer-use", "version": "1.0.0"}
 
 
 # ---------------------------------------------------------------------------

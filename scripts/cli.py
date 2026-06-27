@@ -79,15 +79,27 @@ def cmd_screenshot(args: argparse.Namespace) -> int:
             if len(r) != 4:
                 raise ValueError("--region expects 'left,top,width,height'")
             region = tuple(r)  # type: ignore[assignment]
-        info = screen.screenshot(
-            region=region,
-            output_path=args.output,
-            return_base64=args.base64,
-            monitor_index=args.monitor,
-        )
-        if not args.base64:
-            info.pop("base64", None)
-        return info
+        if getattr(args, "with_markers", False):
+            # --with-markers: annotate clickable regions
+            from markers import screenshot_with_markers
+            result = screenshot_with_markers(
+                region=region,
+                output_path=args.output,
+                return_base64=args.base64,
+                monitor_index=args.monitor,
+                all_windows=getattr(args, "all_windows", False),
+            )
+            return result
+        else:
+            info = screen.screenshot(
+                region=region,
+                output_path=args.output,
+                return_base64=args.base64,
+                monitor_index=args.monitor,
+            )
+            if not args.base64:
+                info.pop("base64", None)
+            return info
 
     return _wrap("screenshot", _run)
 
@@ -447,6 +459,71 @@ def cmd_stop_status(args: argparse.Namespace) -> int:
     return _ok("stop_status", {"stopped": safety.is_stopped(), "failsafe": safety.failsafe_enabled()})
 
 
+def cmd_rec_start(args: argparse.Namespace) -> int:
+    """Start recording mouse/keyboard."""
+    import time as _t
+    from recorder import start_recording, stop_recording
+
+    output = args.output
+    duration = args.duration
+    ok = start_recording()
+    if not ok:
+        print("[recorder] Failed to start")
+        return 1
+    if duration:
+        print(f"[recorder] Auto-stopping after {duration}s...")
+        _t.sleep(duration)
+        print(stop_recording(output))
+    else:
+        try:
+            while True:
+                _t.sleep(0.5)
+        except KeyboardInterrupt:
+            print(stop_recording(output))
+    return 0
+
+
+def cmd_rec_stop(args: argparse.Namespace) -> int:
+    """Stop recording and save."""
+    from recorder import stop_recording
+    output = args.output
+    print(stop_recording(output))
+    return 0
+
+
+def cmd_rec_play(args: argparse.Namespace) -> int:
+    """Play back a recorded macro."""
+    from recorder import play_recording
+    path = args.file
+    speed = args.speed
+    if not path:
+        print("[recorder] --file required")
+        return 1
+    print(play_recording(path, speed=speed))
+    return 0
+
+
+def cmd_lock(args: argparse.Namespace) -> int:
+    """Test: lock input for N seconds."""
+    import time as _t
+    timeout = args.timeout
+    print(f"[input_lock] Locking input for {timeout}s...")
+    print("  Press ESC 3x quickly to unlock early")
+    from input_lock import InputLock
+    with InputLock(timeout=timeout, show_overlay=True):
+        _t.sleep(timeout)
+    print("[input_lock] Released.")
+    return 0
+
+
+def cmd_unlock(args: argparse.Namespace) -> int:
+    """Force-unlock input."""
+    from input_lock import InputLock
+    InputLock.force_release()
+    print("[input_lock] Force-unlocked.")
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
@@ -457,6 +534,17 @@ def build_parser() -> argparse.ArgumentParser:
         prog="computer-use",
         description="Windows desktop automation CLI (screenshot / mouse / keyboard / windows / UI / image / OCR).",
     )
+    p.add_argument(
+        "--lock-input",
+        action="store_true",
+        help="Lock mouse/keyboard input during command execution (needs admin).",
+    )
+    p.add_argument(
+        "--lock-timeout",
+        type=float,
+        default=30,
+        help="Input lock timeout in seconds (default 30).",
+    )
     sub = p.add_subparsers(dest="command", required=True)
 
     # screen
@@ -465,6 +553,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--output", default=None, help="Where to save the PNG.")
     sp.add_argument("--base64", action="store_true", help="Include base64 PNG in JSON output.")
     sp.add_argument("--monitor", type=int, default=0, help="Monitor index (default 0).")
+    sp.add_argument(
+        "--with-markers",
+        action="store_true",
+        help="Annotate clickable regions with bounding boxes + numbered labels (needs opencv + uiautomation).",
+    )
+    sp.add_argument(
+        "--all-windows",
+        action="store_true",
+        help="With --with-markers, scan ALL visible windows instead of just the foreground one.",
+    )
     sp.set_defaults(func=cmd_screenshot)
 
     sub.add_parser("screen-size").set_defaults(func=cmd_screen_size)
@@ -680,13 +778,46 @@ def build_parser() -> argparse.ArgumentParser:
     fs.set_defaults(func=cmd_failsafe)
     sub.add_parser("stop-status").set_defaults(func=cmd_stop_status)
 
+    # recorder
+    rs = sub.add_parser("rec-start", help="Start recording mouse/keyboard.")
+    rs.add_argument("--output", default=None, help="Save to this file when stopped.")
+    rs.add_argument("--duration", type=float, default=None, help="Auto-stop after N seconds.")
+    rs.set_defaults(func=cmd_rec_start)
+    sub.add_parser("rec-stop", help="Stop recording and save.").set_defaults(func=cmd_rec_stop)
+    rp = sub.add_parser("rec-play", help="Play back a recorded macro.")
+    rp.add_argument("--file", required=True, help="Recording JSON file to play.")
+    rp.add_argument("--speed", type=float, default=1.0, help="Playback speed (1.0=original).")
+    rp.set_defaults(func=cmd_rec_play)
+
+    # input lock (optional)
+    lk = sub.add_parser("lock", help="Lock input (test).")
+    lk.add_argument("--timeout", type=float, default=10, help="Lock duration in seconds.")
+    lk.set_defaults(func=cmd_lock)
+    sub.add_parser("unlock", help="Force-unlock input.").set_defaults(func=cmd_unlock)
+
     return p
 
 
 def main(argv: Optional[list] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+
+    # 操作前弹出通知提示条（始终显示，告知用户 AI 正在操作）
+    from notify import NotifyBar
+    bar = NotifyBar()
+    bar.show(f"⚡ Agent 正在执行：{args.command}", total_steps=0)
+    try:
+        # Optional input lock
+        if getattr(args, "lock_input", False):
+            from input_lock import InputLock
+            with InputLock(timeout=getattr(args, "lock_timeout", 30), show_overlay=True):
+                code = args.func(args)
+                return code
+        else:
+            code = args.func(args)
+            return code
+    finally:
+        bar.close()
 
 
 if __name__ == "__main__":
