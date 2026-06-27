@@ -4,9 +4,8 @@ Windows 桌面自动化工具包 — 让 AI Agent 像人一样操控 Windows 桌
 
 [English](#english)
 
-> [!WARNING]
-> **本工具不是安装即用！** 需要本地 Python 环境（≥ 3.10）+ 依赖安装。
-> 详见下方 [环境要求](#安装)。
+> [!TIP]
+> **现在支持 `pip install` 快速安装！** 详见下方 [快速安装](#快速安装)。
 
 > [!IMPORTANT]
 > **Windows Only！** 本工具依赖 `pywinauto`（Windows UI Automation），**不支持 macOS / Linux**。
@@ -41,7 +40,43 @@ Windows 桌面自动化工具包 — 让 AI Agent 像人一样操控 Windows 桌
 
 ---
 
-## 安装
+## 快速安装
+
+### 方式一：`pip install`（推荐）
+
+```bash
+pip install win-computer-use
+```
+
+安装完成后，可以直接使用命令：
+
+```bash
+win-computer-use --help
+win-computer-use screenshot --output test.png
+win-computer-use click 500 500
+```
+
+### 方式二：从源码安装（开发用）
+
+```bash
+# 克隆仓库
+git clone https://github.com/CarlosShao/win-computer-use.git
+cd win-computer-use
+
+# Windows: 运行安装脚本
+install.bat
+
+# Linux/macOS: 运行安装脚本
+bash install.sh
+
+# 或手动安装
+python -m venv .venv
+.venv/Scripts/pip install -e .
+```
+
+---
+
+## 安装（详细）
 
 ### 1. 克隆仓库
 
@@ -50,7 +85,15 @@ git clone https://github.com/CarlosShao/win-computer-use.git
 cd win-computer-use
 ```
 
-### 2. 创建虚拟环境并安装依赖（Windows）
+### 2. 安装（Windows）
+
+**推荐**：运行安装脚本（自动创建虚拟环境并安装依赖）
+
+```bash
+install.bat
+```
+
+**或手动安装**：
 
 ```bash
 # 进入工具目录

@@ -1,15 +1,43 @@
 ---
-name: workbuddy-computer-use
-description: "This skill should be used when the user asks WorkBuddy to control a Windows desktop application -- clicking buttons, typing into text fields, taking screenshots, switching windows, finding UI elements, matching on-screen images, or running OCR. It mirrors the Codex / Hermes 'computer use' capability surface and works on any Win32 / WinForms / WPF / Qt / Electron application via mouse + keyboard simulation, structured UI Automation (pywinauto), and OpenCV template matching. Load it whenever the user says things like '帮我打开 XX 程序', '自动点这个按钮', '截个图', '找一下屏幕上的 XX 图标', '操控这个 app', '填这个表单', 'read the screen', 'operate this GUI', or asks for any task that requires actually driving a desktop app instead of just calling its API."
+name: win-computer-use
+description: "Windows desktop automation for AI agents. This skill provides screenshot, mouse/keyboard control, window management, UI automation, image matching, and OCR capabilities. Load it when the user asks to control a Windows desktop application, click buttons, type text, take screenshots, or automate GUI tasks. Mirrors OpenAI Codex and Anthropic Claude's 'computer use' capability but runs locally on the user's Windows machine."
 agent_created: true
 ---
 
-# workbuddy-computer-use
+# win-computer-use
 
-Windows desktop automation toolkit for WorkBuddy.  A drop-in replacement
+Windows desktop automation toolkit for WorkBuddy. A drop-in replacement
 for the "computer use" capability exposed by OpenAI Codex and Hermes /
 Anthropic Claude -- but driven entirely from Python running on the
 user's machine, no remote VM, no per-token cost.
+
+## Installation
+
+**Option 1: Install from PyPI (recommended)**
+```bash
+pip install win-computer-use
+```
+
+**Option 2: Install from source (for development)**
+```bash
+# Clone the repository
+git clone https://github.com/CarlosShao/win-computer-use.git
+cd win-computer-use
+
+# Run the installation script (Windows)
+install.bat
+
+# Or manually
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .
+```
+
+**Option 3: Use without installation (backward compatibility)**
+```bash
+# After cloning the repo, use the wrapper script
+win-computer-use <command> [args...]
+```
 
 ## What it can do
 
@@ -55,14 +83,14 @@ Prefer the structured UI Automation path whenever possible -- it is
 far more robust than pixel clicking.  Start by listing windows:
 
 ```bash
-python scripts/cli.py list-windows --filter "Notepad"
+win-computer-use list-windows --filter "Notepad"
 ```
 
 The returned JSON contains ``title``, ``handle``, ``pid`` and
 ``rect``.  Activate it with:
 
 ```bash
-python scripts/cli.py activate-window --title "Untitled - Notepad"
+win-computer-use activate-window --title "Untitled - Notepad"
 ```
 
 If the application is not running, ask the user (or the LLM) to start
@@ -72,7 +100,7 @@ or just clicking the Start Menu).
 ### 2. Take a screenshot to ground the model
 
 ```bash
-python scripts/cli.py screenshot --output logs/last.png --base64
+win-computer-use screenshot --output logs/last.png --base64
 ```
 
 `--base64` embeds the PNG inline so the LLM can pipe it straight into
@@ -86,13 +114,13 @@ token cost down.
 
 ```bash
 # Find a button by its automation id (visible in tools like Inspect.exe).
-python scripts/cli.py find-element --title "Untitled - Notepad" \
+win-computer-use find-element --title "Untitled - Notepad" \
     --control_type Button --auto_id "Open"
 # Click it.
-python scripts/cli.py click-element --title "Untitled - Notepad" \
+win-computer-use click-element --title "Untitled - Notepad" \
     --control_type Button --name "OK"
 # Type into a text field.
-python scripts/cli.py set-text --title "Save As" \
+win-computer-use set-text --title "Save As" \
     --control_type Edit --auto_id "FileNameControl" --value "report.txt"
 ```
 
@@ -101,14 +129,14 @@ python scripts/cli.py set-text --title "Save As" \
 automation IDs):
 
 ```bash
-python scripts/cli.py click-image assets/ok_button.png --threshold 0.85
+win-computer-use click-image assets/ok_button.png --threshold 0.85
 ```
 
 **Fallback 2**: raw coordinates after inspecting the screenshot:
 
 ```bash
-python scripts/cli.py click 1240 712
-python scripts/cli.py type "Hello, world!"
+win-computer-use click 1240 712
+win-computer-use type "Hello, world!"
 ```
 
 ### 4. Loop safely
@@ -119,21 +147,21 @@ inside the skill's `logs/` folder so the model only invokes a single
 branch:
 
 ```bash
-python scripts/cli.py click-image assets/confirm.png \
-    || python scripts/cli.py emergency-stop
+win-computer-use click-image assets/confirm.png \
+    || win-computer-use emergency-stop
 ```
 
 ### 5. Stop / undo
 
-- `python scripts/cli.py emergency-stop` -- set the stop flag; the
+- `win-computer-use emergency-stop` -- set the stop flag; the
   *next* call to any action raises `EmergencyStop` immediately.
-- `python scripts/cli.py clear-stop` -- clear the flag (e.g. before
+- `win-computer-use clear-stop` -- clear the flag (e.g. before
   retrying after a fix).
-- `python scripts/cli.py failsafe off` -- disable the
+- `win-computer-use failsafe off` -- disable the
   mouse-to-top-left-corner abort (useful inside RDP / VMs where
   the cursor can't reach the corner).  Off by default for typical
   desktop use: keep `on`.
-- `python scripts/cli.py stop-status` -- query both flags.
+- `win-computer-use stop-status` -- query both flags.
 
 ## Calling convention
 

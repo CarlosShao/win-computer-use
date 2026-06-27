@@ -78,16 +78,16 @@ export PY="$SKILL/.venv/bin/python"
 
 | # | 测试用例 | 命令 | 预期结果 | 通过? |
 |---|---------|------|---------|-------|
-| 1.1 | CLI `--help` 正常输出 | `$PY $SKILL/scripts/cli.py --help` | 输出所有子命令列表，无报错 | ⬜ |
-| 1.2 | 全屏截图 | `$PY $SKILL/scripts/cli.py screenshot --output logs/test_lv1.png` | 返回 JSON 含 path/width/height，文件存在 | ⬜ |
+| 1.1 | CLI `--help` 正常输出 | `win-computer-use --help` | 输出所有子命令列表，无报错 | ⬜ |
+| 1.2 | 全屏截图 | `win-computer-use screenshot --output logs/test_lv1.png` | 返回 JSON 含 path/width/height，文件存在 | ⬜ |
 | 1.3 | 截图带 base64 | 同上 + `--base64` | JSON 中含 base64 字段，长度 > 0 | ⬜ |
-| 1.4 | 获取屏幕尺寸 | `$PY $SKILL/scripts/cli.py screen-size` | 返回 `{width, height}` 匹配实际分辨率 | ⬜ |
-| 1.5 | 获取鼠标位置 | `$PY $SKILL/scripts/cli.py mouse-position` | 返回 `{x, y}` 在屏幕范围内 | ⬜ |
-| 1.6 | 鼠标移动 | `$PY $SKILL/scripts/cli.py move 100 100` → 再 mouse-position | 鼠标在 (100,100) 位置（允许 ±2px 误差）| ⬜ |
-| 1.7 | 单击 | `$PY $SKILL/scripts/cli.py click 500 500` | 执行无报错 | ⬜ |
-| 1.8 | 键盘输入英文 | `$PY $SKILL/scripts/cli.py type "hello_world"` | 执行无报错（建议在记事本中验证）| ⬜ |
-| 1.9 | 安全状态查询 | `$PY $SKILL/scripts/cli.py stop-status` | 返回 emergency_stop / failsafe 状态 | ⬜ |
-| 1.10 | 像素颜色读取 | `$PY $SKILL/scripts/cli.py pixel 100 100` | 返回 `{x, y, color: "#RRGGBB"}` | ⬜ |
+| 1.4 | 获取屏幕尺寸 | `win-computer-use screen-size` | 返回 `{width, height}` 匹配实际分辨率 | ⬜ |
+| 1.5 | 获取鼠标位置 | `win-computer-use mouse-position` | 返回 `{x, y}` 在屏幕范围内 | ⬜ |
+| 1.6 | 鼠标移动 | `win-computer-use move 100 100` → 再 mouse-position | 鼠标在 (100,100) 位置（允许 ±2px 误差）| ⬜ |
+| 1.7 | 单击 | `win-computer-use click 500 500` | 执行无报错 | ⬜ |
+| 1.8 | 键盘输入英文 | `win-computer-use type "hello_world"` | 执行无报错（建议在记事本中验证）| ⬜ |
+| 1.9 | 安全状态查询 | `win-computer-use stop-status` | 返回 emergency_stop / failsafe 状态 | ⬜ |
+| 1.10 | 像素颜色读取 | `win-computer-use pixel 100 100` | 返回 `{x, y, color: "#RRGGBB"}` | ⬜ |
 
 **Lv1 通过标准**：全部 10 项通过 ✅
 
@@ -99,10 +99,10 @@ export PY="$SKILL/.venv/bin/python"
 
 | # | 测试用例 | 命令 | 预期结果 | 通过? |
 |---|---------|------|---------|-------|
-| 2.1 | 列出所有窗口 | `$PY $SKILL/scripts/cli.py list-windows` | 返回 JSON 数组，每项含 title/handle/pid/rect | ⬜ |
-| 2.2 | 过滤窗口 | `$PY $SKILL/scripts/cli.py list-windows --filter "Notepad"` | 只返回匹配的窗口 | ⬜ |
+| 2.1 | 列出所有窗口 | `win-computer-use list-windows` | 返回 JSON 数组，每项含 title/handle/pid/rect | ⬜ |
+| 2.2 | 过滤窗口 | `win-computer-use list-windows --filter "Notepad"` | 只返回匹配的窗口 | ⬜ |
 | 2.3 | 正则过滤窗口 | `list-windows --filter "Notepad$" --regex` | 只返回标题以 Notepad 结尾的窗口 | ⬜ |
-| 2.4 | 查找窗口 | `$PY $SKILL/scripts/cli.py find-window --title "Notepad"` | 返回窗口信息或明确的 "not found" | ⬜ |
+| 2.4 | 查找窗口 | `win-computer-use find-window --title "Notepad"` | 返回窗口信息或明确的 "not found" | ⬜ |
 | 2.5 | 激活窗口 | 先打开记事本 → `activate-window --title "Untitled - Notepad"` | 记事本窗口置顶获得焦点 | ⬜ |
 | 2.6 | 最小化窗口 | `minimize --title "Untitled - Notepad"` | 窗口最小化到任务栏 | ⬜ |
 | 2.7 | 最大化窗口 | `maximize --title "Untitled - Notepad"` | 窗口全屏最大化 | ⬜ |
@@ -225,7 +225,7 @@ export PY="$SKILL/.venv/bin/python"
 
 | # | 测试用例 | 命令 | 预期结果 | 通过? |
 |---|---------|------|---------|-------|
-| 6A.1 | 当前窗口标记点截图 | `$PY $SKILL/scripts/cli.py screenshot --output logs/markers_current.png --with-markers` | 生成图片包含标记点（绿色/橙色/蓝色框 + 编号标签）| ⬜ |
+| 6A.1 | 当前窗口标记点截图 | `win-computer-use screenshot --output logs/markers_current.png --with-markers` | 生成图片包含标记点（绿色/橙色/蓝色框 + 编号标签）| ⬜ |
 | 6A.2 | 全窗口扫描标记点 | 同上 + `--all-windows` | 扫描所有可见窗口，标记点更多 | ⬜ |
 | 6A.3 | 标记点数量限制 | 检查 6A.1 生成的图片 | 标记点数量 ≤ 50（重要性过滤生效）| ⬜ |
 | 6A.4 | 标记点颜色区分 | 检查生成的图片 | 按钮=绿色、输入框=橙色、链接=蓝色 | ⬜ |
@@ -265,17 +265,17 @@ export PY="$SKILL/.venv/bin/python"
 
 | # | 测试用例 | 命令 | 预期结果 | 通过? |
 |---|---------|------|---------|-------|
-| 7A.1 | 全局输入锁标志 | `$PY $SKILL/scripts/cli.py --lock-input screenshot --output logs/test_lock.png` | 执行过程中鼠标/键盘被锁定 | ⬜ |
+| 7A.1 | 全局输入锁标志 | `win-computer-use --lock-input screenshot --output logs/test_lock.png` | 执行过程中鼠标/键盘被锁定 | ⬜ |
 | 7A.2 | 输入锁超时释放 | 同上（默认 30s 超时）| 30s 后自动释放，或操作完成后释放 | ⬜ |
-| 7A.3 | 自定义超时 | `$PY $SKILL/scripts/cli.py --lock-input --lock-timeout 5 screenshot --output logs/test_lock2.png` | 5s 后自动释放 | ⬜ |
+| 7A.3 | 自定义超时 | `win-computer-use --lock-input --lock-timeout 5 screenshot --output logs/test_lock2.png` | 5s 后自动释放 | ⬜ |
 
 ### 7B. 独立锁命令
 
 | # | 测试用例 | 命令 | 预期结果 | 通过? |
 |---|---------|------|---------|-------|
-| 7B.1 | lock 命令锁定 | `$PY $SKILL/scripts/cli.py lock --timeout 10` | 10s 内鼠标/键盘被锁定，屏幕显示遮罩 | ⬜ |
+| 7B.1 | lock 命令锁定 | `win-computer-use lock --timeout 10` | 10s 内鼠标/键盘被锁定，屏幕显示遮罩 | ⬜ |
 | 7B.2 | ESC×3 手动解锁 | 在 7B.1 执行过程中快速按 ESC 三次 | 输入锁立即释放 | ⬜ |
-| 7B.3 | unlock 强制解锁 | 另开终端 → `$PY $SKILL/scripts/cli.py unlock` | 强制释放输入锁 | ⬜ |
+| 7B.3 | unlock 强制解锁 | 另开终端 → `win-computer-use unlock` | 强制释放输入锁 | ⬜ |
 | 7B.4 | 超时自动释放 | 执行 7B.1（10s）| 10s 后自动释放，无需要手动操作 | ⬜ |
 
 ### 7C. 安全机制
@@ -300,7 +300,7 @@ export PY="$SKILL/.venv/bin/python"
 
 | # | 测试用例 | 步骤 | 预期结果 | 通过? |
 |---|---------|------|---------|-------|
-| 8A.1 | 开始录制 | `$PY $SKILL/scripts/cli.py rec-start --output logs/test_macro.json` | 返回"录制已开始"| ⬜ |
+| 8A.1 | 开始录制 | `win-computer-use rec-start --output logs/test_macro.json` | 返回"录制已开始"| ⬜ |
 | 8A.2 | 录制鼠标移动 | 录制中移动鼠标 | JSON 文件中捕获到 mouse_move 事件 | ⬜ |
 | 8A.3 | 录制鼠标点击 | 录制中点击鼠标左键 | JSON 文件中捕获到 mouse_down / mouse_up 事件 | ⬜ |
 | 8A.4 | 录制键盘输入 | 录制中输入文字 "test" | JSON 文件中捕获到 keyboard_down / keyboard_up 事件 | ⬜ |
@@ -318,7 +318,7 @@ export PY="$SKILL/.venv/bin/python"
 
 | # | 测试用例 | 步骤 | 预期结果 | 通过? |
 |---|---------|------|---------|-------|
-| 8C.1 | 回放宏 | `$PY $SKILL/scripts/cli.py rec-play --file logs/test_macro.json` | 鼠标/键盘按录制顺序复现 | ⬜ |
+| 8C.1 | 回放宏 | `win-computer-use rec-play --file logs/test_macro.json` | 鼠标/键盘按录制顺序复现 | ⬜ |
 | 8C.2 | 回放速度调整 | `rec-play --file logs/test_macro.json --speed 2.0` | 以 2 倍速回放 | ⬜ |
 | 8C.3 | 回放时输入锁保护 | 回放过程中尝试移动鼠标 | 回放不被用户操作干扰（如果启用输入锁）| ⬜ |
 | 8C.4 | 回放完成清理 | 回放完成后 | 鼠标/键盘状态恢复正常 | ⬜ |

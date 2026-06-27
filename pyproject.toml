@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "win-computer-use"
+version = "1.0.0"
+description = "Windows desktop automation for AI agents - screenshot, mouse, keyboard, windows, UI automation, OCR"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "CarlosShao", email = "carlos.shao@example.com"}
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pywinauto>=0.6.8",
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0",
+    "Pillow>=10.0.0",
+    "uiautomation>=2.0.0",
+    "mss>=9.0",
+    "pytesseract>=0.3.10",
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+]
+ocr = [
+    "rapidocr>=2.0.0",
+    "tesserocr>=2.6.0",
+]
+
+[project.scripts]
+win-computer-use = "win_computer_use.cli:main"
+win-computer-use-server = "win_computer_use.server:main"
+
+[project.urls]
+Homepage = "https://github.com/CarlosShao/win-computer-use"
+Repository = "https://github.com/CarlosShao/win-computer-use"
+Issues = "https://github.com/CarlosShao/win-computer-use/issues"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["win_computer_use*"]
+
+[tool.setuptools.package-data]
+"win_computer_use" = ["py.typed"]
