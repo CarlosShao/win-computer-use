@@ -8,6 +8,9 @@ Windows 桌面自动化工具包 — 让 AI Agent 像人一样操控 Windows 桌
 > **本工具不是安装即用！** 需要本地 Python 环境（≥ 3.10）+ 依赖安装。
 > 详见下方 [环境要求](#安装)。
 
+> [!IMPORTANT]
+> **Windows Only！** 本工具依赖 `pywinauto`（Windows UI Automation），**不支持 macOS / Linux**。
+
 ---
 
 ## 这是什么？
@@ -47,7 +50,7 @@ git clone https://github.com/CarlosShao/win-computer-use.git
 cd win-computer-use
 ```
 
-### 2. 创建虚拟环境并安装依赖
+### 2. 创建虚拟环境并安装依赖（Windows）
 
 ```bash
 # 进入工具目录
@@ -56,14 +59,13 @@ cd win-computer-use
 # 创建隔离虚拟环境
 python -m venv .venv
 
-# 安装依赖（Windows）
-.venv/Scripts/pip.exe install pyautogui pywinauto opencv-python numpy mss pillow pytesseract
-
-# 安装依赖（macOS / Linux）
-.venv/bin/pip install pyautogui pywinauto opencv-python numpy mss pillow pytesseract
+# 安装依赖（仅 Windows）
+.venv\Scripts\pip.exe install pyautogui pywinauto opencv-python numpy mss pillow pytesseract
 ```
 
 > **注意**：Python 版本要求 ≥ 3.10。如果系统没有 `python` 命令，请用 `python3` 替代。
+> 
+> ⚠️ **本工具仅支持 Windows**，`pywinauto` 是 Windows 专属依赖，无法在 macOS / Linux 上运行。
 
 ### 3.（可选）安装 Tesseract OCR
 
@@ -223,6 +225,9 @@ stop-status
 > **Not an install-and-use tool!** Requires Python (>= 3.10) + pip dependencies on your local machine.
 > See [environment setup](#install) below.
 
+> [!IMPORTANT]
+> **Windows Only!** This tool depends on `pywinauto` (Windows UI Automation) and **does not support macOS / Linux**.
+
 ## What is this?
 
 A Windows desktop automation toolkit that mirrors the "Computer Use" capability of OpenAI Codex / Anthropic Claude — but runs entirely on **your own Windows machine**, no remote VM, no per-token cost.
@@ -240,21 +245,20 @@ A Windows desktop automation toolkit that mirrors the "Computer Use" capability 
 - OCR via Tesseract (optional)
 - Safety: emergency stop + failsafe (mouse corner kill switch)
 
-### Install
+### Install (Windows Only)
 
 ```bash
 git clone https://github.com/CarlosShao/win-computer-use.git
 cd win-computer-use
 python -m venv .venv
 
-# Install Python deps (Windows)
-.venv/Scripts/pip.exe install pyautogui pywinauto opencv-python numpy mss pillow pytesseract
-
-# Install Python deps (macOS / Linux)
-.venv/bin/pip install pyautogui pywinauto opencv-python numpy mss pillow pytesseract
+# Install Python deps (Windows only)
+.venv\Scripts\pip.exe install pyautogui pywinauto opencv-python numpy mss pillow pytesseract
 ```
 
 > **Note**: Requires Python >= 3.10. Use `python3` if `python` is not available.
+> 
+> ⚠️ **Windows Only!** `pywinauto` is Windows-specific and will not work on macOS / Linux.
 
 ### Quick Start
 
