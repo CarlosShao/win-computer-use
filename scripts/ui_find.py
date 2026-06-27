@@ -144,22 +144,25 @@ def find_element(
     if control_type:
         kwargs["control_type"] = control_type
     if name:
-        kwargs["name"] = name
+        # pywinauto UIA backend uses "title" not "name" for child_window filters
+        kwargs["title"] = name
     if class_name:
         kwargs["class_name"] = class_name
 
     try:
         if regex_name and name:
             # pywinauto >= 0.6.5 supports name_re.
-            element = dlg.child_window(name_re=name, **{
-                k: v for k, v in kwargs.items() if k != "name"
+            element = dlg.child_window(title_re=name, **{
+                k: v for k, v in kwargs.items() if k not in ("title",)
             })
         else:
             element = dlg.child_window(**kwargs)
         rect = element.rectangle()
+        _auto_id_attr = getattr(element.element_info, "automation_id", None)
+        auto_id_val = _auto_id_attr() if callable(_auto_id_attr) else (_auto_id_attr if _auto_id_attr is not None else "")
         desc = {
             "found": True,
-            "auto_id": getattr(element.element_info, "automation_id", lambda: "")() if hasattr(element.element_info, "automation_id") else "",
+            "auto_id": auto_id_val,
             "control_type": str(element.element_info.control_type),
             "name": element.window_text(),
             "class_name": element.friendly_class_name(),
@@ -200,15 +203,24 @@ def click_element(
     app = _resolve_app(window)
     dlg = app.window(handle=window["handle"])
     kwargs = {k: v for k, v in find_kwargs.items() if k in {"auto_id", "control_type", "name", "class_name"}}
+    # pywinauto UIA backend expects "title" not "name"
+    if "name" in kwargs:
+        kwargs["title"] = kwargs.pop("name")
     if find_kwargs.get("regex_name") and find_kwargs.get("name"):
-        kwargs.pop("name", None)
-        element = dlg.child_window(name_re=find_kwargs["name"], **{k: v for k, v in kwargs.items()})
+        kwargs.pop("title", None)
+        element = dlg.child_window(title_re=find_kwargs["name"], **{k: v for k, v in kwargs.items()})
     else:
         element = dlg.child_window(**kwargs)
     if double:
-        element.double_click(button=button)  # type: ignore[arg-type]
+        try:
+            element.double_click(button=button)
+        except TypeError:
+            element.double_click()
     else:
-        element.click(button=button)  # type: ignore[arg-type]
+        try:
+            element.click(button=button)
+        except TypeError:
+            element.click()
     return {"ok": True, "element": desc}
 
 
@@ -228,6 +240,9 @@ def set_text(
     app = _resolve_app(window)
     dlg = app.window(handle=window["handle"])
     kwargs = {k: v for k, v in find_kwargs.items() if k in {"auto_id", "control_type", "name", "class_name"}}
+    # pywinauto UIA backend expects "title" not "name"
+    if "name" in kwargs:
+        kwargs["title"] = kwargs.pop("name")
     try:
         element = dlg.child_window(**kwargs)
     except Exception as exc:
@@ -251,6 +266,45 @@ def element_text(
     desc = find_element(title=title, handle=handle, pid=pid, **find_kwargs)
     if not desc or not desc.get("found"):
         return None
+    # Try to get the actual element text (for Edit controls, get the edit text)
+    window = window_mgmt.find_window(title=title, handle=handle, pid=pid)
+    if window is None:
+        return desc.get("name")
+    try:
+        app = _resolve_app(window)
+        dlg = app.window(handle=window["handle"])
+        kwargs = {k: v for k, v in find_kwargs.items() if k in {"auto_id", "control_type", "name", "class_name"}}
+        if "name" in kwargs:
+            kwargs["title"] = kwargs.pop("name")
+        el = dlg.child_window(**kwargs)
+        # For Edit controls, get_value() returns the actual editable text
+        try:
+            val = el.get_value()
+            if val is not None and val != "":
+                return str(val)
+        except Exception:
+            pass
+        try:
+            text_val = el.texts()
+            if text_val:
+                return "\n".join(text_val)
+        except Exception:
+            pass
+        # For Edit controls, get_value() returns the actual editable text
+        try:
+            val = el.get_value()
+            if val is not None and val != "":
+                return str(val)
+        except Exception:
+            pass
+        try:
+            text_val = el.window_text()
+            if text_val:
+                return text_val
+        except Exception:
+            pass
+    except Exception:
+        pass
     return desc.get("name")
 
 

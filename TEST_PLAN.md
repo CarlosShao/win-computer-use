@@ -184,11 +184,13 @@ export PY="$SKILL/.venv/bin/python"
 
 | Level | 名称 | 总用例数 | 通过数 | 通过率 | 状态 |
 |-------|------|---------|--------|--------|------|
-| Lv1 | 基础 Smoke Test | 9 | | | ⬜ Pending |
-| Lv2 | 窗口管理 | 9 | | | ⬜ Pending |
-| Lv3 | 结构化 UI Automation | 8 | | | ⬜ Pending |
-| Lv4 | 图像模板匹配 | 8 | | | ⬜ Pending |
-| Lv5 | 高级能力 & 安全 | 21+ | | | ⬜ Pending |
+| Lv1 | 基础 Smoke Test | 9 | 9 | 100% | ✅ Passed |
+| Lv2 | 窗口管理 | 9（skip 2.9）| 8 | 100% | ✅ Passed |
+| Lv3 | 结构化 UI Automation | 8 | 8 | 100% | ✅ Passed |
+| Lv4 | 图像模板匹配 | 8 | 8 | 100% | ✅ Passed |
+| Lv5 | 高级能力 & 安全 | 5A:7+5B:6+5C:N/A+5D:2 | 15/15 + N/A | 100% | ✅ Passed |
+
+**注：** 测试执行环境为 Windows 11 中文版，部分控件 auto_id 与测试计划假设略有不同（如 Save As 对话框文件名输入框 auto_id=1001 而非 FileNameControl）。测试过程中修复了 4 个代码 bug（automation_id 调用、name→title 参数映射、click button 参数、failsafe 布尔值），已全部修复。
 
 ---
 

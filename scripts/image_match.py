@@ -54,15 +54,80 @@ def find_image(
     threshold: float = _DEFAULT_THRESHOLD,
     *,
     max_results: int = 1,
+    multi_scale: bool = False,
+    scales: Optional[List[float]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Locate ``template_path`` on screen.
 
     Returns the best match (or ``None`` when below ``threshold``).
     When ``max_results > 1`` returns a list of matches instead.
+
+    When ``multi_scale`` is True, the template is resized at multiple
+    scales (default ``[1.0, 1.25, 1.5]``) to handle DPI scaling.
+    ``scales`` can override the default scale list.
     """
     safety.check_emergency_stop()
     template = _load_template(template_path)
     haystack = _capture_for_match(region)
+
+    if not multi_scale:
+        # Original single-scale path
+        return _match_single(template, haystack, region, threshold, max_results)
+
+    # Multi-scale path
+    _scales = scales if scales else [1.0, 1.25, 1.5]
+    best_match: Optional[Dict[str, Any]] = None
+
+    for scale in _scales:
+        if abs(scale - 1.0) < 1e-6:
+            tpl = template
+        else:
+            new_w = int(template.shape[1] * scale)
+            new_h = int(template.shape[0] * scale)
+            if new_w < 4 or new_h < 4:
+                continue
+            tpl = cv2.resize(template, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+        match = _match_single(tpl, haystack, region, threshold, 1)
+        if match is not None:
+            if best_match is None or match["confidence"] > best_match["confidence"]:
+                best_match = match
+
+    if best_match is None:
+        return None
+    if max_results <= 1:
+        return best_match
+    # Multi-result with multi-scale: collect from all scales
+    all_matches: List[Dict[str, Any]] = []
+    for scale in _scales:
+        if abs(scale - 1.0) < 1e-6:
+            tpl = template
+        else:
+            new_w = int(template.shape[1] * scale)
+            new_h = int(template.shape[0] * scale)
+            if new_w < 4 or new_h < 4:
+                continue
+            tpl = cv2.resize(template, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        m = _match_single(tpl, haystack, region, threshold, max_results)
+        if m is not None:
+            if isinstance(m, list):
+                all_matches.extend(m)
+            else:
+                all_matches.append(m)
+    if not all_matches:
+        return None
+    all_matches.sort(key=lambda m: m["confidence"], reverse=True)
+    return all_matches[:max_results]
+
+
+def _match_single(
+    template: np.ndarray,
+    haystack: np.ndarray,
+    region: Optional[Tuple[int, int, int, int]],
+    threshold: float,
+    max_results: int,
+) -> Optional[Any]:
+    """Single-scale match helper."""
     result = cv2.matchTemplate(haystack, template, cv2.TM_CCOEFF_NORMED)
     if max_results <= 1:
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
@@ -77,7 +142,7 @@ def find_image(
             "height": int(th),
             "confidence": float(max_val),
         }
-    # Multi-result path: threshold then non-max suppression.
+    # Multi-result path
     locations = np.where(result >= threshold)
     matches: List[Dict[str, Any]] = []
     region_off = region if region else (0, 0, haystack.shape[1], haystack.shape[0])
@@ -92,7 +157,6 @@ def find_image(
                 "confidence": float(result[pt[1], pt[0]]),
             }
         )
-    # Sort by confidence desc, cap to max_results.
     matches.sort(key=lambda m: m["confidence"], reverse=True)
     return matches[:max_results]
 
@@ -102,10 +166,12 @@ def click_image(
     region: Optional[Tuple[int, int, int, int]] = None,
     threshold: float = _DEFAULT_THRESHOLD,
     button: str = "left",
+    *,
+    multi_scale: bool = False,
 ) -> Dict[str, Any]:
     """Find a template on screen and click its centre."""
     safety.check_emergency_stop()
-    match = find_image(template_path, region=region, threshold=threshold)
+    match = find_image(template_path, region=region, threshold=threshold, multi_scale=multi_scale)
     if match is None:
         return {"ok": False, "error": "template not found", "template": template_path, "threshold": threshold}
     cx = match["x"] + match["width"] // 2
@@ -120,6 +186,8 @@ def wait_for_image(
     timeout: float = 10.0,
     interval: float = 0.5,
     threshold: float = _DEFAULT_THRESHOLD,
+    *,
+    multi_scale: bool = False,
 ) -> Optional[Dict[str, Any]]:
     import time as _t
 
@@ -128,7 +196,7 @@ def wait_for_image(
     while _t.time() < deadline:
         safety.check_emergency_stop()
         try:
-            match = find_image(template_path, region=region, threshold=threshold)
+            match = find_image(template_path, region=region, threshold=threshold, multi_scale=multi_scale)
             if match is not None:
                 return match
         except Exception as exc:
@@ -141,10 +209,12 @@ def count_image(
     template_path: str,
     region: Optional[Tuple[int, int, int, int]] = None,
     threshold: float = _DEFAULT_THRESHOLD,
+    *,
+    multi_scale: bool = False,
 ) -> int:
     """Return how many non-overlapping matches of ``template_path`` exist on screen."""
     safety.check_emergency_stop()
-    matches = find_image(template_path, region=region, threshold=threshold, max_results=50)
+    matches = find_image(template_path, region=region, threshold=threshold, max_results=50, multi_scale=multi_scale)
     if matches is None:
         return 0
     if isinstance(matches, list):

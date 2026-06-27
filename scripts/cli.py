@@ -280,6 +280,7 @@ def cmd_find_image(args: argparse.Namespace) -> int:
             region=_region_tuple(args.region),
             threshold=args.threshold,
             max_results=args.max_results,
+            multi_scale=args.multi_scale,
         ),
     )
 
@@ -292,6 +293,7 @@ def cmd_click_image(args: argparse.Namespace) -> int:
             region=_region_tuple(args.region),
             threshold=args.threshold,
             button=args.button,
+            multi_scale=args.multi_scale,
         ),
     )
 
@@ -305,6 +307,7 @@ def cmd_wait_image(args: argparse.Namespace) -> int:
             timeout=args.timeout,
             interval=args.interval,
             threshold=args.threshold,
+            multi_scale=args.multi_scale,
         ),
     )
 
@@ -316,8 +319,83 @@ def cmd_count_image(args: argparse.Namespace) -> int:
             args.template,
             region=_region_tuple(args.region),
             threshold=args.threshold,
+            multi_scale=args.multi_scale,
         ),
     )
+
+
+# --- ocr -------------------------------------------------------------------
+
+def cmd_smart_click(args: argparse.Namespace) -> int:
+    """Smart click with auto fallback: UI Automation → OCR → Image."""
+    def _run():
+        text = args.text
+        auto_id = args.auto_id
+        control_type = args.control_type
+        name = args.name
+        class_name = args.class_name
+        template = args.template
+        region = _region_tuple(args.region)
+        button = args.button
+        timeout = args.timeout
+        multi_scale = args.multi_scale
+
+        # Try UI Automation first
+        if auto_id or control_type or name or class_name:
+            try:
+                result = ui_find.click_element(
+                    auto_id=auto_id,
+                    control_type=control_type,
+                    name=name,
+                    class_name=class_name,
+                    button=button,
+                    double=False,
+                )
+                if result and result.get("ok"):
+                    result["method"] = "ui_automation"
+                    return result
+            except Exception:
+                pass
+
+        # Try OCR (find text, then click centre)
+        if text:
+            try:
+                words = ocr.ocr_words(region=region, lang="chi_sim+eng")
+                if words:
+                    best = None
+                    for w in words:
+                        if text in w.get("text", ""):
+                            if best is None or w.get("conf", 0) > best.get("conf", 0):
+                                best = w
+                    if best:
+                        cx = best["x"] + best["w"] // 2
+                        cy = best["y"] + best["h"] // 2
+                        input_control.click(cx, cy, button=button)
+                        return {
+                            "ok": True,
+                            "method": "ocr",
+                            "text": best["text"],
+                            "clicked": {"x": cx, "y": cy, "button": button},
+                        }
+            except Exception:
+                pass
+
+        # Fallback to image matching
+        if template:
+            result = image_match.click_image(
+                template,
+                region=region,
+                threshold=0.82,
+                button=button,
+                multi_scale=multi_scale,
+            )
+            if result and result.get("ok"):
+                result["method"] = "image_match"
+                return result
+
+        raise RuntimeError("smart_click: all methods failed (UI Automation / OCR / Image)")
+
+    return _wrap("smart_click", _run)
 
 
 # --- ocr -------------------------------------------------------------------
@@ -542,21 +620,25 @@ def build_parser() -> argparse.ArgumentParser:
     fi = sub.add_parser("find-image")
     _img_args(fi)
     fi.add_argument("--max-results", type=int, default=1)
+    fi.add_argument("--multi-scale", action="store_true", help="Multi-scale matching for DPI scaling.")
     fi.set_defaults(func=cmd_find_image)
 
     ci = sub.add_parser("click-image")
     _img_args(ci)
     ci.add_argument("--button", choices=["left", "right", "middle"], default="left")
+    ci.add_argument("--multi-scale", action="store_true", help="Multi-scale matching for DPI scaling.")
     ci.set_defaults(func=cmd_click_image)
 
     wi = sub.add_parser("wait-image")
     _img_args(wi)
     wi.add_argument("--timeout", type=float, default=10.0)
     wi.add_argument("--interval", type=float, default=0.5)
+    wi.add_argument("--multi-scale", action="store_true", help="Multi-scale matching for DPI scaling.")
     wi.set_defaults(func=cmd_wait_image)
 
     coi = sub.add_parser("count-image")
     _img_args(coi)
+    coi.add_argument("--multi-scale", action="store_true", help="Multi-scale matching for DPI scaling.")
     coi.set_defaults(func=cmd_count_image)
 
     # ocr
@@ -575,6 +657,20 @@ def build_parser() -> argparse.ArgumentParser:
     ow.add_argument("--backend", default="auto", choices=["auto", "rapidocr", "tesseract", "tesserocr"],
                     help="OCR backend: auto (try rapidocr first), rapidocr, tesseract, tesserocr")
     ow.set_defaults(func=cmd_ocr_words)
+
+    # --- smart click (auto fallback) ---------------------------------
+    sc = sub.add_parser("smart-click", help="Click by text/element/image with auto fallback.")
+    sc.add_argument("--text", default=None, help="Text to find via UI Automation or OCR.")
+    sc.add_argument("--auto-id", default=None, help="UI Automation auto-id.")
+    sc.add_argument("--control-type", default=None)
+    sc.add_argument("--name", default=None)
+    sc.add_argument("--class-name", default=None)
+    sc.add_argument("--template", default=None, help="Template PNG for image matching fallback.")
+    sc.add_argument("--region", default=None)
+    sc.add_argument("--button", choices=["left", "right", "middle"], default="left")
+    sc.add_argument("--timeout", type=float, default=5.0)
+    sc.add_argument("--multi-scale", action="store_true")
+    sc.set_defaults(func=cmd_smart_click)
 
     # safety
     sub.add_parser("emergency-stop").set_defaults(func=cmd_emergency_stop)
