@@ -6,11 +6,11 @@ agent_created: true
 
 # win-computer-use
 
-> **SPEED IS EVERYTHING.** Every API call = 1-3 seconds latency. A simple task must complete in **5-8 calls MAX**.
->
-> If you find yourself making more than 8 calls for a single user action, **STOP and simplify**.
+> **SPEED IS EVERYTHING.** Every API call = 1-3s latency + token cost.  
+> **Simple task ≤ 5 calls. Complex task ≤ 10 calls.**  
+> If you exceed the budget, you are doing it wrong — stop and simplify.
 
-Windows desktop automation toolkit. Mirrors OpenAI Codex / Anthropic Claude's "computer use" capability — runs locally, no remote VM, no per-token cost.
+Windows desktop automation toolkit — local, no VM, no per-token cost.
 
 ## Installation
 
@@ -18,263 +18,168 @@ Windows desktop automation toolkit. Mirrors OpenAI Codex / Anthropic Claude's "c
 pip install win-computer-use
 ```
 
-## ⚡ The Golden Path (READ THIS FIRST)
+---
 
-### Rule #1: One screenshot with markers → direct coordinates → done
+## ⚡ The Only Workflow (Plan-First)
 
-**The fastest workflow for ANY task:**
+**One screenshot → plan ALL clicks → execute in batch → done.**
 
 ```
-Step 1: screenshot --with-markers  →  get full UI layout (1 call)
-Step 2: click [coordinates]         →  act on what you see   (1 call)
-Step 3: type / hotkey              →  input if needed        (1 call)
-Done. 3 calls total.
+Step 1: screenshot --with-markers    # ONE shot, see ALL elements (1 call)
+Step 2: click / type / key-press     # execute planned actions (2-4 calls)
+Done. 3-5 calls total.
 ```
 
-### Rule #2: NEVER use OCR unless absolutely necessary
+> **Never screenshot-mid-task.** If you need coordinates again, re-read the same marker screenshot. It's still valid — the UI didn't move in 2 seconds.
 
-**OCR takes 5-10 seconds per call.** It is your LAST resort.
-The `--with-markers` screenshot already tells you where everything is.
+### For Electron apps (Bruno, VS Code, etc.)
 
-### Rule #3: Use raw coordinates when you can see the target in the screenshot
+These apps don't expose elements to UI Automation. `--with-markers` falls back to OCR automatically in a single call — the text labels are included in the returned JSON. **No extra OCR call needed.**
 
-If the marker screenshot shows a button at (x, y), just `click x y`. Don't waste calls finding it again via UI Automation or image matching.
+### No Wait
+
+Never use `wait`. Click immediately after the previous action completes. Bruno/Everything/Windows respond fast enough. If you need to wait for a specific element, use `wait-element` (polls, not fixed delay).
 
 ---
 
 ## Workflow Examples
 
-### Example 1: Click taskbar icon & search (the user's actual test case)
+### Example 1: Click taskbar icon & search (Bruno launch test)
 
-**Task**: 点击任务栏 Everything 快捷方式 → 搜索 test.json → 右键进入目录
-
-```
-# Step 1: ONE screenshot with markers — see entire screen layout
-win-computer-use screenshot --output logs/step1.png --with-markers
-→ Returns image + JSON with all UI elements labeled
-
-# Step 2: Click Everything icon on taskbar (read coordinates from step1 image)
-win-computer-use click 850 1040
-# (coordinates read from the marked screenshot)
-
-# Step 3: Type search query directly
-win-computer-use type "test.json"
-
-# Step 4: Press Enter
-win-computer-use key-press Return
-
-# Step 5: Wait briefly for results, then right-click the file
-win-computer-use wait 1
-win-computer-use right-click 400 280
-# (coordinate of search result from mental model of Everything UI)
-
-# Step 6: Click "Open file location" in context menu
-win-computer-use click 440 520
-```
-
-**Total: 6 calls. Done in ~10 seconds.**
-
-Compare this to the BAD approach (what happened before): 40+ calls, 2+ minutes, massive token waste.
-
-### Example 2: Open app & fill a form
+**Task**: 点击任务栏 Everything → 搜索 test.json → 右键进入目录
 
 ```
-# Step 1: Launch app
-win-computer-use start-app --app "notepad"
+# Step 1: ONE screenshot — see taskbar + everything
+win-computer-use screenshot --output logs/s1.png --with-markers
+→ Returns JSON with 50 labeled elements + marked image
 
-# Step 2: Screenshot with markers
-win-computer-use screenshot --output logs/form.png --with-markers
+# Step 2-5: Execute all actions (no intermediate checks)
+win-computer-use click 850 1040           # click Everything on taskbar
+win-computer-use type "test.json"          # search query
+win-computer-use key-press Down            # select first result
+win-computer-use hotkey shift f10          # context menu
+win-computer-use type "o"                  # "Open file location" accelerator
 
-# Step 3: Click text area + type
-win-computer-use click 500 400
-win-computer-use type "Hello World"
+# OR simpler: Ctrl+Shift+Enter directly opens file path:
+win-computer-use hotkey ctrl shift enter
 
-# Step 4: Save
-win-computer-use hotkey ctrl s
+# Verify: check if File Explorer opened
+win-computer-use list-windows --filter "explorer"
 ```
 
-**Total: 4 calls.**
+**3-5 calls. Done in ~5 seconds.**
 
-### Example 3: Complex multi-step (browser)
+### Example 2: Open Bruno → navigate API → Send request
+
+**Task**: 打开 Bruno → 找到 TestApiRemaining → 发送 Minimax remaining 请求
 
 ```
-# Step 1: Screenshot current state
-win-computer-use screenshot --output logs/start.png --with-markers
+# Step 1: Launch + screenshot
+win-computer-use screenshot --output logs/s1.png --with-markers
+→ Returns JSON. Find Bruno desktop shortcut coords + all UI elements + OCR text
 
-# Step 2: Activate browser window
-win-computer-use activate-window --title "Edge"
+# Step 2-5: Execute planned actions in one batch
+win-computer-use double-click 38 518       # launch Bruno from desktop
+win-computer-use click 500 880              # expand TestApiRemaining collection
+win-computer-use click 764 534              # click Minimax remaining API
+win-computer-use click 1955 583             # Send the request
 
-# Step 3: Navigate (address bar shortcut)
+# Verify
+win-computer-use screenshot --region 1300,620,420,600 --output logs/response.png
+```
+
+**5 calls. Done in ~8 seconds.** (vs. 15 calls / 44s before optimization)
+
+### Example 3: Complex browser workflow
+
+```
+# Step 1: Full layout
+win-computer-use screenshot --output logs/s1.png --with-markers
+
+# Step 2-6: Execute
+win-computer-use activate-window --title Edge
 win-computer-use hotkey ctrl l
 win-computer-use type "https://www.bing.com"
 win-computer-use key-press Return
-
-# Step 4: Wait for page load, then screenshot results
-win-computer-use wait 3
+win-computer-use wait-element --title Bing --timeout 5
 win-computer-use screenshot --output logs/results.png --with-markers
-
-# Step 5: Click search box (from markers) and type
-win-computer-use click 600 300
-win-computer-use type "search query"
-win-computer-use key-press Return
 ```
 
-**Total: 7 calls.**
+**6 calls.**
 
 ---
 
-## Command Reference (Speed-Ordered)
+## Command Reference
 
-### 🏆 Tier 1: Use these FIRST (fastest, most reliable)
+### 🏆 Tier 1: Fastest (use every time)
 
-| Command | When to use | Example |
-|---------|------------|---------|
-| `screenshot --with-markers` | **ALWAYS start here** — see full UI in one shot | `screenshot -o log.png --with-markers` |
-| `click X Y` | You see target coordinates in screenshot | `click 500 300` |
-| `right-click X Y` | Need context menu | `right-click 500 300` |
-| `type TEXT` | Input text into focused field | `type "hello world"` |
-| `hotkey KEY...` | Shortcut keys | `hotkey ctrl s` |
-| `key-press KEY` | Single key | `key-press Return` |
-| `start-app --app NAME` | Launch an app by name | `start-app --app msedge` |
-
-### 🔶 Tier 2: Use when needed (moderate speed)
-
-| Command | When to use | Example |
-|---------|------------|---------|
-| `activate-window --title X` | Bring window to front | `activate-window --title Edge` |
-| `list-windows --filter X` | Find running windows | `list-windows --filter Edge` |
-| `move X Y` | Move mouse without clicking | `move 100 100` |
-| `double-click X Y` | Double-click | `double-click 500 300` |
-| `drag X1 Y1 X2 Y2` | Drag from A to B | `drag 100 100 500 500` |
-| `scroll N` | Scroll wheel | `scroll 3` |
-| `wait SECONDS` | Pause for UI to load | `wait 2` |
-
-### 🔴 Tier 3: Avoid unless necessary (slow or complex)
-
-| Command | Why avoid | Alternative |
-|---------|----------|-------------|
-| `ocr` / `ocr-words` | **5-10 seconds per call!** | Use `--with-markers` instead |
-| `find-element` | Needs exact control info | Read coords from marker screenshot |
-| `click-element` | Same as above | Use `click X Y` |
-| `find-image` | Needs template image prepared | Use `click X Y` from markers |
-| `click-image` | Same as above | Use `click X Y` from markers |
-| `smart-click` | Tries 3 methods sequentially (slow) | Use `click X Y` from markers |
-
-### ⛑️ Safety (use only when needed)
-
-| Command | Purpose |
+| Command | Example |
 |---------|---------|
-| `emergency-stop` | Halt all operations immediately |
-| `clear-stop` | Resume after emergency stop |
-| `stop-status` | Check safety state |
-| `failsafe on/off` | Toggle mouse-corner abort |
+| `screenshot --with-markers` | `screenshot -o s1.png --with-markers` |
+| `click X Y` | `click 500 300` |
+| `right-click X Y` | `right-click 500 300` |
+| `type "text"` | `type "search query"` |
+| `hotkey ctrl s` | `hotkey ctrl shift enter` |
+| `key-press Return` | `key-press Down` |
+| `start-app --app name` | `start-app --app bruno` |
+
+### 🔶 Tier 2: Moderate speed (use when needed)
+
+| Command | Example |
+|---------|---------|
+| `activate-window --title X` | `activate-window --title Edge` |
+| `list-windows --filter X` | `list-windows --filter explorer` |
+| `double-click X Y` | `double-click 38 518` |
+| `wait-element --title X --timeout 5` | `wait-element --title Bruno --timeout 5` |
+
+### 🔴 Tier 3: Slow (avoid)
+**OCR**: 5-10s per call. Don't use. `--with-markers` now includes OCR text for Electron apps.  
+**find-element / click-element**: Only use when markers fail.  
+**find-image / click-image**: Only if you have a template image.
 
 ---
 
-## Anti-Patterns (DO NOT DO These)
+## Anti-Patterns
 
-### ❌ Bad: OCR-heavy approach (SLOW)
+❌ **Don't do this (slow):**
 ```
-# This took 40+ calls and 2+ minutes:
-screenshot
-ocr                                    # 10 seconds!
-ocr-search "Everything"               # another 10 seconds!
-find-element --name "Search"          # might not work
-set-text --value "test.json"
-screenshot                            # verify?
-ocr                                    # ANOTHER scan?!
-...
+screenshot → think → ocr → think → click → screenshot → ocr → think → click → ...
 ```
 
-### ✅ Good: Marker-first approach (FAST)
+✅ **Do this (fast):**
 ```
-# This completes in 6 calls and ~10 seconds:
-screenshot --with-markers             # 1 call, see everything
-click 850 1040                         # click taskbar icon
-type "test.json"
-key-press Return
-wait 1
-right-click 400 280                   # right-click result
-click 440 520                         # open file location
+screenshot (see everything) → click → click → type → done
 ```
 
-### ❌ Bad: Over-investigating
-```
-# Don't try 5 different ways to find an app:
-list-windows                          # try 1
-find-window --title Everything        # try 2  
-powershell get-process                # try 3
-registry search                       # try 4
-ocr search                            # try 5
-```
+❌ **Don't wait artificially:** `wait 3`, `wait 5` — waste 3-5s each time.  
+✅ **Click immediately or use `wait-element`.**
 
-### ✅ Good: Direct action
-```
-# Just click it if you can see it:
-screenshot --with-markers            # see where things are
-click X Y                             # done
-```
+❌ **Don't screenshot between every action.** UI doesn't change in 2 seconds.  
+✅ **One screenshot at start, plan all actions.**
+
+❌ **Don't try 5 ways to find an app.**  
+✅ **Just click the coordinates you already saw.**
 
 ---
 
 ## Calling Convention
 
 ```bash
-# After pip install — use directly:
 win-computer-use <command> [args...]
-
-# Or via module:
-python -m win_computer_use <command> [args...]
 ```
 
-Every command emits a single JSON object on stdout:
+Every command emits JSON on stdout: `{"ok": true/false, "action": "...", "data": {...}}`
 
-```json
-{"ok": true, "action": "screenshot", "data": {"path": "...", "width": 1920, "height": 1080}}
-{"ok": false, "action": "click", "error": "..."}
-```
+### Performance Budget per Task
 
-Exit codes: `0` success, `1` error.
-
----
-
-## Special Flags
-
-| Flag | Effect | Use when |
-|------|--------|----------|
-| `--with-markers` | Annotate screenshot with UI element labels | **Always on first screenshot** |
-| `--all-windows` | Scan ALL windows (not just active) | Target app is not foreground |
-| `--base64` | Embed PNG as base64 in JSON | Passing image to vision LLM |
-| `--region L,T,W,H` | Crop screenshot to region | Large screens / reduce token cost |
-| `--lock-input` | Lock keyboard/mouse during command | Prevent user interference |
-| `--lock-timeout SEC` | Auto-release lock after N seconds | Safety timeout |
-
----
-
-## Environment
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `COMPUTER_USE_SCREENSHOT_DIR` | `<skill>/screenshots/` | Auto-named screenshot output |
-| `COMPUTER_USE_SAFETY_FILE` | `<skill>/logs/safety_state.json` | Emergency stop flag store |
-| `COMPUTER_USE_MATCH_THRESHOLD` | `0.82` | Image match confidence floor |
-
-## Dependencies
-
-- Python 3.10+, Windows only
-- `pyautogui`, `pywinauto`, `mss`, `opencv-python`, `numpy`, `Pillow`
-- Optional: `uiautomation` (for `--with-markers`)
-- Optional: `pytesseract` / `rapidocr` (for OCR — **avoid using**)
-
-Install:
-```bash
-pip install win-computer-use
-```
+| Task complexity | Max calls | Target time |
+|----------------|-----------|-------------|
+| Simple (single click/type) | 3 | ≤ 3s |
+| Medium (launch app + interact) | 5 | ≤ 8s |
+| Complex (navigate multi-step) | 10 | ≤ 20s |
 
 ## Safety
 
-This skill moves the cursor and types keys on the real computer.
-
-- **FAILSAFE** enabled by default — slam cursor to top-left corner to abort
-- **Emergency stop** — `emergency-stop` sets flag; next interactive call aborts
-- Only invoke on actions the user explicitly authorised
+- **FAILSAFE**: enabled by default — mouse to screen corner = abort
+- **Emergency stop**: `emergency-stop` flags next command
+- This tool controls your real mouse & keyboard. Only use on authorized actions.

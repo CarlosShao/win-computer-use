@@ -36,7 +36,7 @@ except ImportError as _exc:
 from . import platform_util as _platform
 
 # Re-use screenshot() from the screen module (same package)
-from screen import screenshot as _raw_screenshot
+from .screen import screenshot as _raw_screenshot
 
 
 # ---------------------------------------------------------------------------
@@ -834,6 +834,47 @@ def screenshot_with_markers(
             for i, el in enumerate(elements):
                 el["id"] = i + 1
             print(f"[markers] Contour detection: {len(elements)} regions", flush=True)
+
+            # FAST OCR overlay: match text to contour regions.
+            # For Electron apps (Bruno, VS Code, etc.) uiautomation returns 0
+            # elements, but OCR can still read the text. We run OCR once and
+            # assign text to the nearest contour region — no extra API calls.
+            try:
+                from .ocr import _ensure_rapid_ocr, _rapid_ocr_words
+                ocr_words = _rapid_ocr_words(raw_path)
+                if ocr_words:
+                    # For each OCR word, find the closest contour region (by center distance)
+                    matched = 0
+                    ocr_by_y = sorted(ocr_words, key=lambda w: (w['y'], w['x']))
+                    for el in elements:
+                        el_cx = (el['rect'][0] + el['rect'][2]) // 2
+                        el_cy = (el['rect'][1] + el['rect'][3]) // 2
+                        region_w = el['rect'][2] - el['rect'][0]
+                        region_h = el['rect'][3] - el['rect'][1]
+                        best_word = None
+                        best_dist = region_w + region_h  # max acceptable distance
+                        for w in ocr_by_y:
+                            w_cx = w['x'] + w['w'] // 2
+                            w_cy = w['y'] + w['h'] // 2
+                            # Check if word center is within the region (expanded by 50%)
+                            if (el['rect'][0] - region_w // 2 <= w_cx <= el['rect'][2] + region_w // 2 and
+                                el['rect'][1] - region_h // 2 <= w_cy <= el['rect'][3] + region_h // 2):
+                                dist = abs(w_cx - el_cx) + abs(w_cy - el_cy)
+                                if dist < best_dist:
+                                    best_dist = dist
+                                    best_word = w
+                        if best_word and best_word['text'].strip():
+                            # Use OCR text, keep existing text if already set
+                            existing = el.get('text', '').strip()
+                            if existing and len(existing) >= len(best_word['text']):
+                                el['text'] = existing
+                            else:
+                                el['text'] = best_word['text']
+                            matched += 1
+                    if matched > 0:
+                        print(f"[markers] OCR overlay: matched text to {matched}/{len(elements)} regions", flush=True)
+            except Exception as ocr_e:
+                print(f"[markers] OCR overlay skipped ({ocr_e})", flush=True)
 
     # Step 4: draw markers
     if output_path:

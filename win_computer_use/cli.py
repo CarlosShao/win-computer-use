@@ -71,7 +71,7 @@ def cmd_screenshot(args: argparse.Namespace) -> int:
             region = tuple(r)  # type: ignore[assignment]
         if getattr(args, "with_markers", False):
             # --with-markers: annotate clickable regions
-            from markers import screenshot_with_markers
+            from .markers import screenshot_with_markers
             result = screenshot_with_markers(
                 region=region,
                 output_path=args.output,
@@ -483,7 +483,7 @@ def cmd_stop_status(args: argparse.Namespace) -> int:
 def cmd_rec_start(args: argparse.Namespace) -> int:
     """Start recording mouse/keyboard."""
     import time as _t
-    from recorder import start_recording, stop_recording
+    from .recorder import start_recording, stop_recording
 
     output = args.output
     duration = args.duration
@@ -506,7 +506,7 @@ def cmd_rec_start(args: argparse.Namespace) -> int:
 
 def cmd_rec_stop(args: argparse.Namespace) -> int:
     """Stop recording and save."""
-    from recorder import stop_recording
+    from .recorder import stop_recording
     output = args.output
     print(stop_recording(output))
     return 0
@@ -514,7 +514,7 @@ def cmd_rec_stop(args: argparse.Namespace) -> int:
 
 def cmd_rec_play(args: argparse.Namespace) -> int:
     """Play back a recorded macro."""
-    from recorder import play_recording
+    from .recorder import play_recording
     path = args.file
     speed = args.speed
     if not path:
@@ -530,7 +530,7 @@ def cmd_lock(args: argparse.Namespace) -> int:
     timeout = args.timeout
     print(f"[input_lock] Locking input for {timeout}s...")
     print("  Press ESC 3x quickly to unlock early")
-    from input_lock import InputLock
+    from .input_lock import InputLock
     with InputLock(timeout=timeout, show_overlay=True):
         _t.sleep(timeout)
     print("[input_lock] Released.")
@@ -539,7 +539,7 @@ def cmd_lock(args: argparse.Namespace) -> int:
 
 def cmd_unlock(args: argparse.Namespace) -> int:
     """Force-unlock input."""
-    from input_lock import InputLock
+    from .input_lock import InputLock
     InputLock.force_release()
     print("[input_lock] Force-unlocked.")
     return 0
@@ -829,13 +829,13 @@ def main(argv: Optional[list] = None) -> int:
     args = parser.parse_args(argv)
 
     # 操作前弹出通知提示条（始终显示，告知用户 AI 正在操作）
-    from notify import NotifyBar
-    bar = NotifyBar()
+    from . import notify
+    bar = notify.NotifyBar()
     bar.show(f"⚡ Agent 正在执行：{args.command}", total_steps=0)
     try:
         # Optional input lock
         if getattr(args, "lock_input", False):
-            from input_lock import InputLock
+            from .input_lock import InputLock
             with InputLock(timeout=getattr(args, "lock_timeout", 30), show_overlay=True):
                 code = args.func(args)
                 return code
