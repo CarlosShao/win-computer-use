@@ -175,6 +175,7 @@ def cmd_start_app(args: argparse.Namespace) -> int:
             "cmd": "cmd",
             "powershell": "powershell",
             "everything": "everything",
+            "bruno": "bruno",
         }
         resolved = app_map.get(app_name.lower(), app_name)
         try:
@@ -662,6 +663,22 @@ def build_parser() -> argparse.ArgumentParser:
     sa = sub.add_parser("start-app", help="Launch an application by name or path.")
     sa.add_argument("--app", required=True, help="App name (e.g. msedge, notepad) or full path to exe.")
     sa.set_defaults(func=cmd_start_app)
+
+    # clipboard
+    from . import clipboard as _clipboard
+    def cmd_clipboard_get(_args: argparse.Namespace) -> int:
+        t = _clipboard.get_text()
+        return _wrap("clipboard_get", lambda: {"text": t, "length": len(t)})
+    def cmd_clipboard_set(args: argparse.Namespace) -> int:
+        ok = _clipboard.set_text(args.text)
+        return _wrap("clipboard_set", lambda: {"ok": ok, "set": len(args.text)})
+    cb = sub.add_parser("clipboard", help="Read/write system clipboard text.")
+    cb_sub = cb.add_subparsers(dest="clipboard_cmd")
+    cb_get = cb_sub.add_parser("get", help="Read text from clipboard.")
+    cb_get.set_defaults(func=cmd_clipboard_get)
+    cb_set = cb_sub.add_parser("set", help="Write text to clipboard.")
+    cb_set.add_argument("text", help="Text to write to clipboard.")
+    cb_set.set_defaults(func=cmd_clipboard_set)
 
     # windows
     def _win_args(parser: argparse.ArgumentParser, required: bool = False) -> None:

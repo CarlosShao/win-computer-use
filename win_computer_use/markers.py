@@ -772,6 +772,9 @@ def screenshot_with_markers(
     elements = _get_foreground_elements(all_windows=all_windows)
     print(f"[markers] UI Automation ({mode_str}): {len(elements)} raw elements", flush=True)
 
+    # Track foreground-only count to detect Electron apps
+    fg_element_count = len(elements)
+
     # Smart fallback: if foreground mode yielded too few elements,
     # automatically retry with all-windows mode (still filtering desktop)
     if not all_windows and len(elements) <= 3:
@@ -821,8 +824,12 @@ def screenshot_with_markers(
     for i, el in enumerate(elements):
         el["id"] = i + 1
 
-    # Step 3: fallback to image-based detection if too few elements
-    if len(elements) <= 2:
+    # Step 3: fallback to image-based detection if foreground found too few
+    # (fg_element_count tracks foreground-only; if it's ≤ 2, the foreground
+    # app is likely Electron/custom-rendered where uiautomation can't read it,
+    # and all-windows results are from OTHER windows — not the target app)
+    need_contour = len(elements) <= 2 or fg_element_count <= 2
+    if need_contour:
         print("[markers] Too few elements, trying contour detection...", flush=True)
         fallback = _detect_clickable_contours(raw_path)
         for el in fallback:
@@ -839,11 +846,27 @@ def screenshot_with_markers(
             # For Electron apps (Bruno, VS Code, etc.) uiautomation returns 0
             # elements, but OCR can still read the text. We run OCR once and
             # assign text to the nearest contour region — no extra API calls.
+            # Crops to the foreground window area to reduce OCR time (~5s vs ~12s).
             try:
-                from .ocr import _ensure_rapid_ocr, _rapid_ocr_words
-                ocr_words = _rapid_ocr_words(raw_path)
+                # Determine crop rect: foreground window area (to speed up OCR)
+                ocr_crop = None
+                if not region and not all_windows:
+                    try:
+                        hwnd = ctypes.windll.user32.GetForegroundWindow()
+                        if hwnd and hwnd != 0:
+                            fg_rect = ctypes.wintypes.RECT()
+                            ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(fg_rect))
+                            fw = fg_rect.right - fg_rect.left
+                            fh = fg_rect.bottom - fg_rect.top
+                            if 100 < fw < raw_info["width"] and 100 < fh < raw_info["height"]:
+                                ocr_crop = (fg_rect.left, fg_rect.top, fg_rect.right, fg_rect.bottom)
+                    except Exception:
+                        pass
+
+                from .winocr import ocr_words_smart
+                ocr_words = ocr_words_smart(raw_path, crop_rect=ocr_crop)
                 if ocr_words:
-                    # For each OCR word, find the closest contour region (by center distance)
+                    # For each OCR word, find the closest contour region
                     matched = 0
                     ocr_by_y = sorted(ocr_words, key=lambda w: (w['y'], w['x']))
                     for el in elements:
@@ -852,11 +875,10 @@ def screenshot_with_markers(
                         region_w = el['rect'][2] - el['rect'][0]
                         region_h = el['rect'][3] - el['rect'][1]
                         best_word = None
-                        best_dist = region_w + region_h  # max acceptable distance
+                        best_dist = region_w + region_h
                         for w in ocr_by_y:
                             w_cx = w['x'] + w['w'] // 2
                             w_cy = w['y'] + w['h'] // 2
-                            # Check if word center is within the region (expanded by 50%)
                             if (el['rect'][0] - region_w // 2 <= w_cx <= el['rect'][2] + region_w // 2 and
                                 el['rect'][1] - region_h // 2 <= w_cy <= el['rect'][3] + region_h // 2):
                                 dist = abs(w_cx - el_cx) + abs(w_cy - el_cy)
@@ -864,7 +886,6 @@ def screenshot_with_markers(
                                     best_dist = dist
                                     best_word = w
                         if best_word and best_word['text'].strip():
-                            # Use OCR text, keep existing text if already set
                             existing = el.get('text', '').strip()
                             if existing and len(existing) >= len(best_word['text']):
                                 el['text'] = existing
