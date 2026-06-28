@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "win-computer-use"
-version = "1.0.0"
+version = "1.1.0"
 description = "Windows desktop automation for AI agents - screenshot, mouse, keyboard, windows, UI automation, OCR"
 readme = "README.md"
 license = {text = "MIT"}
